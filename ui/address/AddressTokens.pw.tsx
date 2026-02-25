@@ -1,63 +1,55 @@
 import { Box } from '@chakra-ui/react';
-import { test as base, expect, devices } from '@playwright/experimental-ct-react';
 import React from 'react';
+
+import type { AddressTokensResponse } from 'types/api/address';
 
 import * as addressMock from 'mocks/address/address';
 import * as tokensMock from 'mocks/address/tokens';
+import * as tokenInfo from 'mocks/tokens/tokenInfo';
+import * as tokenInstance from 'mocks/tokens/tokenInstance';
 import * as socketServer from 'playwright/fixtures/socketServer';
-import TestApp from 'playwright/TestApp';
-import buildApiUrl from 'playwright/utils/buildApiUrl';
+import { test, expect, devices } from 'playwright/lib';
 
 import AddressTokens from './AddressTokens';
 
-const ADDRESS_HASH = addressMock.withName.hash;
-const API_URL_ADDRESS = buildApiUrl('address', { hash: ADDRESS_HASH });
-const API_URL_TOKENS = buildApiUrl('address_tokens', { hash: ADDRESS_HASH });
+const ADDRESS_HASH = addressMock.validator.hash;
 
 const nextPageParams = {
   items_count: 50,
   token_name: 'aaa',
-  token_type: '123',
+  token_type: 'ERC-20' as const,
   value: 1,
+  fiat_value: '1',
 };
 
-const test = base.extend({
-  page: async({ page }, use) => {
-    const response20 = {
-      items: [ tokensMock.erc20a, tokensMock.erc20b, tokensMock.erc20c, tokensMock.erc20d ],
-      next_page_params: nextPageParams,
-    };
-    const response721 = {
-      items: [ tokensMock.erc721a, tokensMock.erc721b, tokensMock.erc721c ],
-      next_page_params: nextPageParams,
-    };
-    const response1155 = {
-      items: [ tokensMock.erc1155a, tokensMock.erc1155b ],
-      next_page_params: nextPageParams,
-    };
+test.beforeEach(async({ mockApiResponse }) => {
+  const response20: AddressTokensResponse = {
+    items: [ tokensMock.erc20a, tokensMock.erc20b, tokensMock.erc20c, tokensMock.erc20d ],
+    next_page_params: nextPageParams,
+  };
+  const response721: AddressTokensResponse = {
+    items: [ tokensMock.erc721a, tokensMock.erc721b, tokensMock.erc721c ],
+    next_page_params: nextPageParams,
+  };
+  const response1155: AddressTokensResponse = {
+    items: [ tokensMock.erc1155a, tokensMock.erc1155b ],
+    next_page_params: nextPageParams,
+  };
+  const response404: AddressTokensResponse = {
+    items: [ tokensMock.erc404a, tokensMock.erc404b ],
+    next_page_params: nextPageParams,
+  };
 
-    await page.route(API_URL_ADDRESS, (route) => route.fulfill({
-      status: 200,
-      body: JSON.stringify(addressMock.withName),
-    }));
-    await page.route(API_URL_TOKENS + '?type=ERC-20', (route) => route.fulfill({
-      status: 200,
-      body: JSON.stringify(response20),
-    }));
-    await page.route(API_URL_TOKENS + '?type=ERC-721', (route) => route.fulfill({
-      status: 200,
-      body: JSON.stringify(response721),
-    }));
-    await page.route(API_URL_TOKENS + '?type=ERC-1155', (route) => route.fulfill({
-      status: 200,
-      body: JSON.stringify(response1155),
-    }));
-
-    use(page);
-  },
+  await mockApiResponse('general:address', addressMock.validator, { pathParams: { hash: ADDRESS_HASH } });
+  await mockApiResponse('general:address_tokens', response20, { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: 'ERC-20' } });
+  await mockApiResponse('general:address_tokens', response721, { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: 'ERC-721' } });
+  await mockApiResponse('general:address_tokens', response1155, { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: 'ERC-1155' } });
+  await mockApiResponse('general:address_tokens', response404, { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: 'ERC-404' } });
+  await mockApiResponse('general:address_nfts', tokensMock.nfts, { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: [] } });
+  await mockApiResponse('general:address_collections', tokensMock.collections, { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: [] } });
 });
 
-test('erc20 +@dark-mode', async({ mount }) => {
+test('erc20 +@dark-mode', async({ render }) => {
   const hooksConfig = {
     router: {
       query: { hash: ADDRESS_HASH, tab: 'tokens_erc20' },
@@ -65,51 +57,52 @@ test('erc20 +@dark-mode', async({ mount }) => {
     },
   };
 
-  const component = await mount(
-    <TestApp>
-      <Box h={{ base: '134px', lg: 6 }}/>
+  const component = await render(
+    <Box pt={{ base: '134px', lg: 6 }}>
       <AddressTokens/>
-    </TestApp>,
+    </Box>,
     { hooksConfig },
   );
 
   await expect(component).toHaveScreenshot();
 });
 
-test('erc721 +@dark-mode', async({ mount }) => {
+test('collections +@dark-mode', async({ render }) => {
   const hooksConfig = {
     router: {
-      query: { hash: ADDRESS_HASH, tab: 'tokens_erc721' },
+      query: { hash: ADDRESS_HASH, tab: 'tokens_nfts' },
       isReady: true,
     },
   };
 
-  const component = await mount(
-    <TestApp>
-      <Box h={{ base: '134px', lg: 6 }}/>
+  const component = await render(
+    <Box pt={{ base: '134px', lg: 6 }}>
       <AddressTokens/>
-    </TestApp>,
+    </Box>,
     { hooksConfig },
   );
 
   await expect(component).toHaveScreenshot();
 });
 
-test('erc1155 +@dark-mode', async({ mount }) => {
+test('nfts +@dark-mode', async({ render, mockAssetResponse }) => {
+  await mockAssetResponse(tokenInstance.base.image_url as string, './playwright/mocks/image_s.jpg');
+
   const hooksConfig = {
     router: {
-      query: { hash: ADDRESS_HASH, tab: 'tokens_erc1155' },
+      query: { hash: ADDRESS_HASH, tab: 'tokens_nfts' },
       isReady: true,
     },
   };
 
-  const component = await mount(
-    <TestApp>
-      <Box h={{ base: '134px', lg: 6 }}/>
+  const component = await render(
+    <Box pt={{ base: '134px', lg: 6 }}>
       <AddressTokens/>
-    </TestApp>,
+    </Box>,
     { hooksConfig },
   );
+
+  await component.getByText('List').click();
 
   await expect(component).toHaveScreenshot();
 });
@@ -117,7 +110,7 @@ test('erc1155 +@dark-mode', async({ mount }) => {
 test.describe('mobile', () => {
   test.use({ viewport: devices['iPhone 13 Pro'].viewport });
 
-  test('erc20', async({ mount }) => {
+  test('erc20', async({ render }) => {
     const hooksConfig = {
       router: {
         query: { hash: ADDRESS_HASH, tab: 'tokens_erc20' },
@@ -125,49 +118,52 @@ test.describe('mobile', () => {
       },
     };
 
-    const component = await mount(
-      <TestApp>
-        <Box h={{ base: '134px', lg: 6 }}/>
+    const component = await render(
+      <Box pt={{ base: '134px', lg: 6 }}>
         <AddressTokens/>
-      </TestApp>,
+      </Box>,
       { hooksConfig },
     );
 
     await expect(component).toHaveScreenshot();
   });
 
-  test('erc721', async({ mount }) => {
+  test('nfts', async({ render, mockAssetResponse, page }) => {
+    await mockAssetResponse(tokenInstance.base.image_url as string, './playwright/mocks/image_s.jpg');
+
     const hooksConfig = {
       router: {
-        query: { hash: ADDRESS_HASH, tab: 'tokens_erc721' },
+        query: { hash: ADDRESS_HASH, tab: 'tokens_nfts' },
         isReady: true,
       },
     };
 
-    const component = await mount(
-      <TestApp>
-        <Box h={{ base: '134px', lg: 6 }}/>
+    const component = await render(
+      <Box pt={{ base: '134px', lg: 6 }}>
         <AddressTokens/>
-      </TestApp>,
+      </Box>,
       { hooksConfig },
     );
+
+    await component.locator('button').filter({ hasText: 'List' }).click();
+    await page.mouse.move(0, 0);
+    await page.mouse.click(0, 0);
 
     await expect(component).toHaveScreenshot();
   });
 
-  test('erc1155', async({ mount }) => {
+  test('collections', async({ render }) => {
     const hooksConfig = {
       router: {
-        query: { hash: ADDRESS_HASH, tab: 'tokens_erc1155' },
+        query: { hash: ADDRESS_HASH, tab: 'tokens_nfts' },
         isReady: true,
       },
     };
 
-    const component = await mount(
-      <TestApp>
-        <Box h={{ base: '134px', lg: 6 }}/>
+    const component = await render(
+      <Box pt={{ base: '134px', lg: 6 }}>
         <AddressTokens/>
-      </TestApp>,
+      </Box>,
       { hooksConfig },
     );
 
@@ -175,13 +171,10 @@ test.describe('mobile', () => {
   });
 });
 
-base.describe('update balances via socket', () => {
-  const test = base.extend<socketServer.SocketServerFixture>({
-    createSocket: socketServer.createSocket,
-  });
+test.describe('update balances via socket', () => {
   test.describe.configure({ mode: 'serial' });
 
-  test('', async({ mount, page, createSocket }) => {
+  test('base flow', async({ render, page, createSocket, mockApiResponse }) => {
     test.slow();
 
     const hooksConfig = {
@@ -203,37 +196,36 @@ base.describe('update balances via socket', () => {
       items: [ tokensMock.erc1155a ],
       next_page_params: null,
     };
+    const response404 = {
+      items: [ tokensMock.erc404a ],
+      next_page_params: null,
+    };
 
-    await page.route(API_URL_ADDRESS, (route) => route.fulfill({
-      status: 200,
-      body: JSON.stringify(addressMock.validator),
-    }));
-    await page.route(API_URL_TOKENS + '?type=ERC-20', (route) => route.fulfill({
-      status: 200,
-      body: JSON.stringify(response20),
-    }));
-    await page.route(API_URL_TOKENS + '?type=ERC-721', (route) => route.fulfill({
-      status: 200,
-      body: JSON.stringify(response721),
-    }));
-    await page.route(API_URL_TOKENS + '?type=ERC-1155', (route) => route.fulfill({
-      status: 200,
-      body: JSON.stringify(response1155),
-    }));
-
-    const component = await mount(
-      <TestApp withSocket>
-        <Box>
-          <Box h={{ base: '134px', lg: 6 }}/>
-          <AddressTokens/>
-        </Box>
-      </TestApp>,
-      { hooksConfig },
+    const erc20ApiUrl = await mockApiResponse('general:address_tokens', response20, { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: 'ERC-20' } });
+    const erc721ApiUrl = await mockApiResponse('general:address_tokens', response721, { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: 'ERC-721' } });
+    const erc1155ApiUrl = await mockApiResponse(
+      'general:address_tokens',
+      response1155,
+      { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: 'ERC-1155' } },
+    );
+    const erc404ApiUrl = await mockApiResponse(
+      'general:address_tokens',
+      response404,
+      { pathParams: { hash: ADDRESS_HASH }, queryParams: { type: 'ERC-404' } },
     );
 
-    await page.waitForResponse(API_URL_TOKENS + '?type=ERC-20');
-    await page.waitForResponse(API_URL_TOKENS + '?type=ERC-721');
-    await page.waitForResponse(API_URL_TOKENS + '?type=ERC-1155');
+    const component = await render(
+      <Box pt={{ base: '134px', lg: 6 }}>
+        <AddressTokens/>
+      </Box>,
+      { hooksConfig },
+      { withSocket: true },
+    );
+
+    await page.waitForResponse(erc20ApiUrl);
+    await page.waitForResponse(erc721ApiUrl);
+    await page.waitForResponse(erc1155ApiUrl);
+    await page.waitForResponse(erc404ApiUrl);
 
     await expect(component).toHaveScreenshot();
 
@@ -254,7 +246,7 @@ base.describe('update balances via socket', () => {
           value: '9852000000000000',
           token: {
             ...tokensMock.erc20c.token,
-            address: '0xE2cf36D00C57e01371b94B4206ae2CF841931Adc',
+            address_hash: '0xE2cf36D00C57e01371b94B4206ae2CF841931Adc',
             name: 'Tether USD',
             symbol: 'USDT',
           },
@@ -276,4 +268,26 @@ base.describe('update balances via socket', () => {
 
     await expect(component).toHaveScreenshot();
   });
+});
+
+test('native token', async({ render, mockEnvs }) => {
+  await mockEnvs([
+    [ 'NEXT_PUBLIC_CELO_ENABLED', 'true' ],
+    [ 'NEXT_PUBLIC_CELO_NATIVE_TOKEN_ADDRESS', tokenInfo.tokenInfoERC20c.address_hash ],
+  ]);
+  const hooksConfig = {
+    router: {
+      query: { hash: ADDRESS_HASH, tab: 'tokens_erc20' },
+      isReady: true,
+    },
+  };
+
+  const component = await render(
+    <Box pt={{ base: '134px', lg: 6 }}>
+      <AddressTokens/>
+    </Box>,
+    { hooksConfig },
+  );
+
+  await expect(component).toHaveScreenshot();
 });

@@ -1,7 +1,7 @@
-import { Icon, Link } from '@chakra-ui/react';
 import React from 'react';
 
-import iconDocs from 'icons/docs.svg';
+import { Link } from 'toolkit/chakra/link';
+import IconSvg from 'ui/shared/IconSvg';
 
 interface Props {
   href: string;
@@ -16,7 +16,7 @@ const DocsLink = ({ href }: Props) => {
       alignItems="center"
       columnGap={ 1 }
     >
-      <Icon as={ iconDocs } boxSize={ 6 } color="text_secondary"/>
+      <IconSvg name="docs" boxSize={ 6 } color="icon.primary"/>
       <span>Documentation</span>
     </Link>
   );

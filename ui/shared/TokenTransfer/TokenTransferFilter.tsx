@@ -1,15 +1,11 @@
-import {
-  Text,
-  Radio,
-  RadioGroup,
-  Stack,
-} from '@chakra-ui/react';
+import { Text, Stack } from '@chakra-ui/react';
 import React from 'react';
 
 import type { AddressFromToFilter } from 'types/api/address';
 import type { TokenType } from 'types/api/token';
 
 import useIsInitialLoading from 'lib/hooks/useIsInitialLoading';
+import { Radio, RadioGroup } from 'toolkit/chakra/radio';
 import PopoverFilter from 'ui/shared/filters/PopoverFilter';
 import TokenTypeFilter from 'ui/shared/filters/TokenTypeFilter';
 
@@ -34,29 +30,36 @@ const TokenTransferFilter = ({
 }: Props) => {
   const isInitialLoading = useIsInitialLoading(isLoading);
 
+  const handleAddressFilterChange = React.useCallback(({ value }: { value: string | null }) => {
+    if (!value) {
+      return;
+    }
+
+    onAddressFilterChange?.(value);
+  }, [ onAddressFilterChange ]);
+
   return (
-    <PopoverFilter appliedFiltersNum={ appliedFiltersNum } contentProps={{ w: '200px' }} isLoading={ isInitialLoading }>
+    <PopoverFilter appliedFiltersNum={ appliedFiltersNum } contentProps={{ w: '220px' }} isLoading={ isInitialLoading }>
       { withAddressFilter && (
         <>
-          <Text variant="secondary" fontWeight={ 600 }>Address</Text>
+          <Text color="text.secondary" fontWeight={ 600 }>Address</Text>
           <RadioGroup
             size="lg"
-            onChange={ onAddressFilterChange }
+            onValueChange={ handleAddressFilterChange }
             defaultValue={ defaultAddressFilter || 'all' }
             paddingBottom={ 4 }
             borderBottom="1px solid"
-            borderColor="divider"
+            borderColor="border.divider"
           >
-            <Stack spacing={ 4 }>
+            <Stack gap={ 4 }>
               <Radio value="all"><Text fontSize="md">All</Text></Radio>
-              <Radio value="from"><Text fontSize="md">From</Text></Radio>
-              <Radio value="to"><Text fontSize="md">To</Text></Radio>
+              <Radio value="from"><Text fontSize="md">Outgoing transfers</Text></Radio>
+              <Radio value="to"><Text fontSize="md">Incoming transfers</Text></Radio>
             </Stack>
           </RadioGroup>
         </>
       ) }
-      <Text variant="secondary" fontWeight={ 600 }>Type</Text>
-      <TokenTypeFilter onChange={ onTypeFilterChange } defaultValue={ defaultTypeFilters }/>
+      <TokenTypeFilter<TokenType> onChange={ onTypeFilterChange } defaultValue={ defaultTypeFilters } nftOnly={ false }/>
     </PopoverFilter>
   );
 };

@@ -1,25 +1,22 @@
-import { chakra, Icon, useColorModeValue } from '@chakra-ui/react';
+import type { BoxProps } from '@chakra-ui/react';
 import React from 'react';
 
-import tokenPlaceholderIcon from 'icons/token-placeholder.svg';
+import IconSvg from 'ui/shared/IconSvg';
 
-const TokenLogoPlaceholder = ({ className }: { className?: string }) => {
-  const bgColor = useColorModeValue('gray.200', 'gray.600');
-  const color = useColorModeValue('gray.400', 'gray.200');
-
+const TokenLogoPlaceholder = (props: BoxProps) => {
   return (
-    <Icon
-      className={ className }
+    <IconSvg
       fontWeight={ 600 }
-      bgColor={ bgColor }
-      color={ color }
+      bgColor={{ _light: 'gray.200', _dark: 'gray.600' }}
+      color={{ _light: 'gray.400', _dark: 'gray.200' }}
       borderRadius="base"
-      as={ tokenPlaceholderIcon }
+      name="token-placeholder"
       transitionProperty="background-color,color"
       transitionDuration="normal"
       transitionTimingFunction="ease"
+      { ...props }
     />
   );
 };
 
-export default chakra(TokenLogoPlaceholder);
+export default TokenLogoPlaceholder;

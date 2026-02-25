@@ -1,43 +1,54 @@
-import type { As } from '@chakra-ui/react';
-import { Skeleton, Box, Button, Circle, Icon, useColorModeValue } from '@chakra-ui/react';
+import { Box, Circle } from '@chakra-ui/react';
 import React from 'react';
 
-import filterIcon from 'icons/filter.svg';
+import type { ButtonProps } from 'toolkit/chakra/button';
+import { Button } from 'toolkit/chakra/button';
+import { Skeleton } from 'toolkit/chakra/skeleton';
+import IconSvg from 'ui/shared/IconSvg';
 
-const FilterIcon = <Icon as={ filterIcon } boxSize={ 5 } mr={{ base: 0, lg: 2 }}/>;
-
-interface Props {
-  isActive?: boolean;
+interface Props extends ButtonProps {
   isLoading?: boolean;
   appliedFiltersNum?: number;
-  onClick: () => void;
-  as?: As;
 }
 
-const FilterButton = ({ isActive, isLoading, appliedFiltersNum, onClick, as }: Props, ref: React.ForwardedRef<HTMLButtonElement>) => {
-  const badgeColor = useColorModeValue('white', 'black');
-  const badgeBgColor = useColorModeValue('blue.700', 'gray.50');
-
+const FilterButton = ({ isLoading, appliedFiltersNum, ...rest }: Props, ref: React.ForwardedRef<HTMLButtonElement>) => {
   if (isLoading) {
-    return <Skeleton w={{ base: 9, lg: '78px' }} h={ 8 } borderRadius="base"/>;
+    return <Skeleton loading w={{ base: 9, lg: '78px' }} h={ 8 } borderRadius="base" flexShrink={ 0 }/>;
   }
+
+  const numElement = appliedFiltersNum ? (
+    <Circle
+      className="AppliedFiltersNum"
+      size={ 5 }
+      bg="selected.control.text"
+      color={{ _light: 'white', _dark: 'black' }}
+      _groupHover={{
+        bg: 'hover',
+      }}
+      _groupExpanded={{
+        bg: 'hover',
+      }}
+    >
+      { appliedFiltersNum }
+    </Circle>
+  ) : null;
 
   return (
     <Button
       ref={ ref }
-      rightIcon={ appliedFiltersNum ? <Circle bg={ badgeBgColor } size={ 5 } color={ badgeColor }>{ appliedFiltersNum }</Circle> : undefined }
       size="sm"
-      fontWeight="500"
-      variant="outline"
-      colorScheme="gray-dark"
-      onClick={ onClick }
-      isActive={ isActive }
-      px={ 1.5 }
+      fontWeight="medium"
+      gap={ 1 }
+      variant="dropdown"
+      selected={ Boolean(appliedFiltersNum) }
       flexShrink={ 0 }
-      as={ as }
+      pointerEvents="all"
+      px={{ base: 1, lg: 3 }}
+      { ...rest }
     >
-      { FilterIcon }
+      <IconSvg name="filter" boxSize={ 5 }/>
       <Box display={{ base: 'none', lg: 'block' }}>Filter</Box>
+      { numElement }
     </Button>
   );
 };

@@ -1,26 +1,30 @@
 import {
   HStack,
-  Box,
   Flex,
-  Skeleton,
+
 } from '@chakra-ui/react';
 import React from 'react';
 
 import type { Transaction } from 'types/api/transaction';
+import type { ChainConfig } from 'types/multichain';
 
 import config from 'configs/app';
-import rightArrowIcon from 'icons/arrows/east.svg';
 import getValueWithUnit from 'lib/getValueWithUnit';
-import useTimeAgoIncrement from 'lib/hooks/useTimeAgoIncrement';
-import Icon from 'ui/shared/chakra/Icon';
-import AddressEntity from 'ui/shared/entities/address/AddressEntity';
+import { currencyUnits } from 'lib/units';
+import { Skeleton } from 'toolkit/chakra/skeleton';
+import { space } from 'toolkit/utils/htmlEntities';
+import AddressFromTo from 'ui/shared/address/AddressFromTo';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
-import InOutTag from 'ui/shared/InOutTag';
 import ListItemMobile from 'ui/shared/ListItemMobile/ListItemMobile';
-import TxStatus from 'ui/shared/TxStatus';
+import TxStatus from 'ui/shared/statusTag/TxStatus';
+import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
+import TxFee from 'ui/shared/tx/TxFee';
+import TxWatchListTags from 'ui/shared/tx/TxWatchListTags';
 import TxAdditionalInfo from 'ui/txs/TxAdditionalInfo';
 import TxType from 'ui/txs/TxType';
+
+import TxTranslationType from './TxTranslationType';
 
 type Props = {
   tx: Transaction;
@@ -28,25 +32,28 @@ type Props = {
   currentAddress?: string;
   enableTimeIncrement?: boolean;
   isLoading?: boolean;
-}
+  animation?: string;
+  chainData?: ChainConfig;
+};
 
-const TAG_WIDTH = 48;
-const ARROW_WIDTH = 24;
-
-const TxsListItem = ({ tx, isLoading, showBlockInfo, currentAddress, enableTimeIncrement }: Props) => {
+const TxsListItem = ({ tx, isLoading, showBlockInfo, currentAddress, enableTimeIncrement, animation, chainData }: Props) => {
   const dataTo = tx.to ? tx.to : tx.created_contract;
 
-  const isOut = Boolean(currentAddress && currentAddress === tx.from.hash);
-  const isIn = Boolean(currentAddress && currentAddress === tx.to?.hash);
-
-  const timeAgo = useTimeAgoIncrement(tx.timestamp, enableTimeIncrement);
-
   return (
-    <ListItemMobile display="block" width="100%" isAnimated key={ tx.hash }>
-      <Flex justifyContent="space-between" mt={ 4 }>
-        <HStack>
-          <TxType types={ tx.tx_types } isLoading={ isLoading }/>
+    <ListItemMobile display="block" width="100%" animation={ animation } key={ tx.hash }>
+      <Flex justifyContent="space-between" alignItems="flex-start" mt={ 4 }>
+        <HStack flexWrap="wrap">
+          { tx.translation ? (
+            <TxTranslationType
+              types={ tx.transaction_types }
+              isLoading={ isLoading || tx.translation.isLoading }
+              translatationType={ tx.translation.data?.type }
+            />
+          ) :
+            <TxType types={ tx.transaction_types } isLoading={ isLoading }/>
+          }
           <TxStatus status={ tx.status } errorText={ tx.status === 'error' ? tx.result : undefined } isLoading={ isLoading }/>
+          <TxWatchListTags tx={ tx } isLoading={ isLoading }/>
         </HStack>
         <TxAdditionalInfo tx={ tx } isMobile isLoading={ isLoading }/>
       </Flex>
@@ -54,21 +61,26 @@ const TxsListItem = ({ tx, isLoading, showBlockInfo, currentAddress, enableTimeI
         <TxEntity
           isLoading={ isLoading }
           hash={ tx.hash }
-          truncation="constant"
+          truncation="constant_long"
           fontWeight="700"
+          icon={ tx.transaction_types.includes('blob_transaction') ? { name: 'blob' } : {} }
+          chain={ chainData }
         />
-        { tx.timestamp && (
-          <Skeleton isLoaded={ !isLoading } color="text_secondary" fontWeight="400" fontSize="sm">
-            <span>{ timeAgo }</span>
-          </Skeleton>
-        ) }
+        <TimeWithTooltip
+          timestamp={ tx.timestamp }
+          enableIncrement={ enableTimeIncrement }
+          isLoading={ isLoading }
+          color="text.secondary"
+          fontWeight="400"
+          fontSize="sm"
+        />
       </Flex>
       { tx.method && (
         <Flex mt={ 3 }>
-          <Skeleton isLoaded={ !isLoading } display="inline-block" whiteSpace="pre">Method </Skeleton>
+          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Method </Skeleton>
           <Skeleton
-            isLoaded={ !isLoading }
-            color="text_secondary"
+            loading={ isLoading }
+            color="text.secondary"
             overflow="hidden"
             whiteSpace="nowrap"
             textOverflow="ellipsis"
@@ -77,55 +89,46 @@ const TxsListItem = ({ tx, isLoading, showBlockInfo, currentAddress, enableTimeI
           </Skeleton>
         </Flex>
       ) }
-      { showBlockInfo && tx.block !== null && (
+      { showBlockInfo && tx.block_number !== null && (
         <Flex mt={ 2 }>
-          <Skeleton isLoaded={ !isLoading } display="inline-block" whiteSpace="pre">Block </Skeleton>
+          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Block </Skeleton>
           <BlockEntity
             isLoading={ isLoading }
-            number={ tx.block }
+            number={ tx.block_number }
             noIcon
           />
         </Flex>
       ) }
-      <Flex alignItems="center" height={ 6 } mt={ 6 }>
-        <AddressEntity
-          address={ tx.from }
-          isLoading={ isLoading }
-          noLink={ isOut }
-          noCopy={ isOut }
-          w={ `calc((100% - ${ currentAddress ? TAG_WIDTH + 16 : ARROW_WIDTH + 8 }px)/2)` }
-          fontWeight="500"
-        />
-        { (isIn || isOut) ?
-          <InOutTag isIn={ isIn } isOut={ isOut } width="48px" mx={ 2 } isLoading={ isLoading }/> : (
-            <Box mx={ 2 }>
-              <Icon
-                as={ rightArrowIcon }
-                boxSize={ 6 }
-                color="gray.500"
-                isLoading={ isLoading }
-              />
-            </Box>
+      <AddressFromTo
+        from={ tx.from }
+        to={ dataTo }
+        current={ currentAddress }
+        isLoading={ isLoading }
+        mt={ 6 }
+        fontWeight="500"
+      />
+      { !config.UI.views.tx.hiddenFields?.value && (
+        <Flex mt={ 2 } columnGap={ 2 }>
+          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Value</Skeleton>
+          <Skeleton loading={ isLoading } display="inline-block" color="text.secondary" whiteSpace="pre">
+            <span>
+              { getValueWithUnit(tx.value).toFormat() }
+              { space }
+              { currencyUnits.ether }
+            </span>
+          </Skeleton>
+        </Flex>
+      ) }
+      { !config.UI.views.tx.hiddenFields?.tx_fee && (
+        <Flex mt={ 2 } mb={ 3 } columnGap={ 2 }>
+          { (tx.stability_fee !== undefined || tx.fee.value !== null) && (
+            <>
+              <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Fee</Skeleton>
+              <TxFee tx={ tx } isLoading={ isLoading }/>
+            </>
           ) }
-        { dataTo ? (
-          <AddressEntity
-            address={ dataTo }
-            isLoading={ isLoading }
-            noLink={ isIn }
-            noCopy={ isIn }
-            w={ `calc((100% - ${ currentAddress ? TAG_WIDTH + 16 : ARROW_WIDTH + 8 }px)/2)` }
-            fontWeight="500"
-          />
-        ) : '-' }
-      </Flex>
-      <Box mt={ 2 }>
-        <Skeleton isLoaded={ !isLoading } display="inline-block" whiteSpace="pre">Value { config.chain.currency.symbol } </Skeleton>
-        <Skeleton isLoaded={ !isLoading } display="inline-block" variant="text_secondary">{ getValueWithUnit(tx.value).toFormat() }</Skeleton>
-      </Box>
-      <Box mt={ 2 } mb={ 3 }>
-        <Skeleton isLoaded={ !isLoading } display="inline-block" whiteSpace="pre">Fee { config.chain.currency.symbol } </Skeleton>
-        <Skeleton isLoaded={ !isLoading } display="inline-block" variant="text_secondary">{ getValueWithUnit(tx.fee.value).toFormat() }</Skeleton>
-      </Box>
+        </Flex>
+      ) }
     </ListItemMobile>
   );
 };

@@ -1,68 +1,60 @@
-import { Flex, Button, Icon, chakra, Popover, PopoverTrigger, PopoverBody, PopoverContent, useDisclosure } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import type { NetworkExplorer as TNetworkExplorer } from 'types/networks';
 
 import config from 'configs/app';
-import arrowIcon from 'icons/arrows/east-mini.svg';
-import explorerIcon from 'icons/explorer.svg';
-import LinkExternal from 'ui/shared/LinkExternal';
+import { Image } from 'toolkit/chakra/image';
+import { Link } from 'toolkit/chakra/link';
+import { stripTrailingSlash } from 'toolkit/utils/url';
+import IconSvg from 'ui/shared/IconSvg';
+import VerifyWith from 'ui/shared/VerifyWith';
 
 interface Props {
   className?: string;
   type: keyof TNetworkExplorer['paths'];
   pathParam: string;
-  hideText?: boolean;
 }
 
-const NetworkExplorers = ({ className, type, pathParam, hideText }: Props) => {
-  const { isOpen, onToggle, onClose } = useDisclosure();
-
-  const explorersLinks = config.UI.explorers.items
-    .filter((explorer) => explorer.paths[type])
-    .map((explorer) => {
-      const url = new URL(explorer.paths[type] + '/' + pathParam, explorer.baseUrl);
-      return <LinkExternal key={ explorer.baseUrl } href={ url.toString() }>{ explorer.title }</LinkExternal>;
-    });
+const NetworkExplorers = ({ className, type, pathParam }: Props) => {
+  const explorersLinks = React.useMemo(() => {
+    return config.UI.explorers.items
+      .filter((explorer) => typeof explorer.paths[type] === 'string')
+      .map((explorer) => {
+        const path = explorer.paths[type] || '';
+        let pathWithParam;
+        if (path.includes(':id_lowercase')) {
+          pathWithParam = path.replace(':id_lowercase', pathParam.toLowerCase());
+        } else if (path.includes(':id')) {
+          pathWithParam = path.replace(':id', pathParam);
+        } else {
+          pathWithParam = stripTrailingSlash(path) + '/' + pathParam.toLowerCase();
+        }
+        const url = new URL(pathWithParam, explorer.baseUrl);
+        return (
+          <Link external h="34px" key={ explorer.baseUrl } href={ url.toString() } alignItems="center" display="inline-flex" minW="120px">
+            { explorer.logo ?
+              <Image boxSize={ 5 } mr={ 2 } src={ explorer.logo } alt={ `${ explorer.title } icon` }/> :
+              <IconSvg name="explorer" boxSize={ 5 } color="icon.primary" mr={ 2 }/>
+            }
+            { explorer.title }
+          </Link>
+        );
+      });
+  }, [ pathParam, type ]);
 
   if (explorersLinks.length === 0) {
     return null;
   }
 
   return (
-    <Popover isOpen={ isOpen } onClose={ onClose } placement="bottom-start" isLazy>
-      <PopoverTrigger>
-        <Button
-          className={ className }
-          size="sm"
-          variant="outline"
-          colorScheme="gray"
-          onClick={ onToggle }
-          aria-label="Verify in other explorers"
-          fontWeight={ 500 }
-          px={ 2 }
-          h="30px"
-        >
-          <Icon as={ explorerIcon } boxSize={ 5 } mr={ hideText ? 0 : 1 }/>
-          { !hideText && <span>Explorers</span> }
-          <Icon as={ arrowIcon } transform={ isOpen ? 'rotate(90deg)' : 'rotate(-90deg)' } transitionDuration="faster" boxSize={ 5 } ml={ 1 }/>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent w="240px">
-        <PopoverBody >
-          <chakra.span color="text_secondary" fontSize="xs">Verify with other explorers</chakra.span>
-          <Flex
-            alignItems="center"
-            flexWrap="wrap"
-            columnGap={ 6 }
-            rowGap={ 3 }
-            mt={ 3 }
-          >
-            { explorersLinks }
-          </Flex>
-        </PopoverBody>
-      </PopoverContent>
-    </Popover>
+    <VerifyWith
+      className={ className }
+      links={ explorersLinks }
+      label="Verify with other explorers"
+      longText={ `${ explorersLinks.length } Explorer${ explorersLinks.length > 1 ? 's' : '' }` }
+      shortText={ explorersLinks.length.toString() }
+    />
   );
 };
 

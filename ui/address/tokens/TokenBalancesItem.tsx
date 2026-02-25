@@ -1,20 +1,29 @@
-import { Box, Flex, Icon, Skeleton, Text, useColorModeValue } from '@chakra-ui/react';
+import { Box, Flex, Text } from '@chakra-ui/react';
 import React from 'react';
 
-import walletIcon from 'icons/wallet.svg';
+import { Skeleton } from 'toolkit/chakra/skeleton';
 
-const TokenBalancesItem = ({ name, value, isLoading }: {name: string; value: string; isLoading: boolean }) => {
+type Props = {
+  name: string;
+  value: string;
+  icon: React.ReactNode;
+  valueSecondary?: string;
+  isLoading: boolean;
+};
 
-  const bgColor = useColorModeValue('blackAlpha.50', 'whiteAlpha.50');
+const TokenBalancesItem = ({ name, icon, value, valueSecondary, isLoading }: Props) => {
 
   return (
-    <Flex p={ 5 } bgColor={ bgColor } borderRadius="16px" alignItems="center">
-      <Icon as={ walletIcon } boxSize="30px" mr={ 3 }/>
-      <Box>
-        <Text variant="secondary" fontSize="xs">{ name }</Text>
-        <Skeleton isLoaded={ !isLoading } fontWeight="500">{ value }</Skeleton>
-      </Box>
-    </Flex>
+    <Box px="12px" py="10px" bgColor={{ _light: 'theme.stats.bg._light', _dark: 'theme.stats.bg._dark' }} borderRadius="base">
+      <Text color="text.secondary" textStyle="xs" fontWeight={ 500 } mb={ 1 }>{ name }</Text>
+      <Flex alignItems="center">
+        { icon }
+        <Skeleton loading={ isLoading } fontWeight="500" whiteSpace="pre-wrap" wordBreak="break-word" display="flex" ml={ 2 }>
+          { value }
+          { Boolean(valueSecondary) && <Text color="text.secondary"> ({ valueSecondary })</Text> }
+        </Skeleton>
+      </Flex>
+    </Box>
   );
 };
 

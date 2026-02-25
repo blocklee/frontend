@@ -1,36 +1,51 @@
-import {
-  Box, Flex, Heading, Icon, IconButton, Image, Link, List, Modal, ModalBody,
-  ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, Tag, Text, useColorModeValue,
-} from '@chakra-ui/react';
+import { Box, Flex, Text } from '@chakra-ui/react';
 import React, { useCallback } from 'react';
 
-import type { MarketplaceAppOverview } from 'types/client/marketplace';
+import type { MarketplaceApp } from 'types/client/marketplace';
 
-import linkIcon from 'icons/link.svg';
-import ghIcon from 'icons/social/git.svg';
-import tgIcon from 'icons/social/telega.svg';
-import twIcon from 'icons/social/tweet.svg';
-import starFilledIcon from 'icons/star_filled.svg';
-import starOutlineIcon from 'icons/star_outline.svg';
-import useIsMobile from 'lib/hooks/useIsMobile';
-import { nbsp } from 'lib/html-entities';
+import { route } from 'nextjs-routes';
 
-import MarketplaceAppModalLink from './MarketplaceAppModalLink';
+import config from 'configs/app';
+import { Badge } from 'toolkit/chakra/badge';
+import { Button } from 'toolkit/chakra/button';
+import { useColorModeValue } from 'toolkit/chakra/color-mode';
+import { DialogBody, DialogCloseTrigger, DialogContent, DialogFooter, DialogRoot } from 'toolkit/chakra/dialog';
+import { Heading } from 'toolkit/chakra/heading';
+import { IconButton } from 'toolkit/chakra/icon-button';
+import { Image } from 'toolkit/chakra/image';
+import { Link } from 'toolkit/chakra/link';
+import { nbsp } from 'toolkit/utils/htmlEntities';
+import { isBrowser } from 'toolkit/utils/isBrowser';
+import { makePrettyLink } from 'toolkit/utils/url';
+import CopyToClipboard from 'ui/shared/CopyToClipboard';
+import type { IconName } from 'ui/shared/IconSvg';
+import IconSvg from 'ui/shared/IconSvg';
+
+import FavoriteIcon from './FavoriteIcon';
+import MarketplaceAppGraphLinks from './MarketplaceAppGraphLinks';
+import MarketplaceAppIntegrationIcon from './MarketplaceAppIntegrationIcon';
+import Rating from './Rating/Rating';
+
+const feature = config.features.marketplace;
+const isRatingEnabled = feature.isEnabled && 'api' in feature;
 
 type Props = {
   onClose: () => void;
   isFavorite: boolean;
-  onFavoriteClick: (id: string, isFavorite: boolean) => void;
-  data: MarketplaceAppOverview;
-}
+  onFavoriteClick: (id: string, isFavorite: boolean, source: 'App modal') => void;
+  data: MarketplaceApp;
+  graphLinks?: Array<{ title: string; url: string }>;
+};
 
 const MarketplaceAppModal = ({
   onClose,
   isFavorite,
   onFavoriteClick,
   data,
+  graphLinks,
 }: Props) => {
   const {
+    id,
     title,
     url,
     external,
@@ -40,206 +55,229 @@ const MarketplaceAppModal = ({
     github,
     telegram,
     twitter,
+    discord,
     logo,
     logoDarkMode,
     categories,
+    rating,
+    ratingsTotalCount,
+    userRating,
+    internalWallet,
   } = data;
 
   const socialLinks = [
     telegram ? {
-      icon: tgIcon,
+      icon: 'social/telegram_filled' as IconName,
       url: telegram,
     } : null,
     twitter ? {
-      icon: twIcon,
+      icon: 'social/twitter_filled' as IconName,
       url: twitter,
     } : null,
-    github ? {
-      icon: ghIcon,
-      url: github,
+    discord ? {
+      icon: 'social/discord_filled' as IconName,
+      url: discord,
     } : null,
   ].filter(Boolean);
 
-  const handleFavoriteClick = useCallback(() => {
-    onFavoriteClick(data.id, isFavorite);
-  }, [ onFavoriteClick, data.id, isFavorite ]);
+  if (github) {
+    if (Array.isArray(github)) {
+      github.forEach((url) => socialLinks.push({ icon: 'social/github_filled', url }));
+    } else {
+      socialLinks.push({ icon: 'social/github_filled', url: github });
+    }
+  }
 
-  const isMobile = useIsMobile();
+  const handleOpenChange = React.useCallback(({ open }: { open: boolean }) => {
+    if (!open) {
+      onClose();
+    }
+  }, [ onClose ]);
+
+  const handleFavoriteClick = useCallback(() => {
+    onFavoriteClick(id, isFavorite, 'App modal');
+  }, [ onFavoriteClick, id, isFavorite ]);
+
   const logoUrl = useColorModeValue(logo, logoDarkMode || logo);
 
   return (
-    <Modal
-      isOpen={ Boolean(data.id) }
-      onClose={ onClose }
-      size={ isMobile ? 'full' : 'md' }
-      isCentered
+    <DialogRoot
+      open={ Boolean(data.id) }
+      onOpenChange={ handleOpenChange }
+      size={{ lgDown: 'full', lg: 'md' }}
     >
-      <ModalOverlay/>
-
-      <ModalContent>
-        <ModalHeader
+      <DialogContent>
+        <Box
           display="grid"
           gridTemplateColumns={{ base: 'auto 1fr' }}
-          paddingRight={{ sm: 12 }}
+          marginBottom={{ base: 6, md: 8 }}
         >
           <Flex
             alignItems="center"
             justifyContent="center"
-            w={{ base: '72px', sm: '144px' }}
-            h={{ base: '72px', sm: '144px' }}
-            marginRight={{ base: 6, sm: 8 }}
-            gridRow={{ base: '1 / 3', sm: '1 / 4' }}
+            w={{ base: '72px', md: '144px' }}
+            h={{ base: '72px', md: '144px' }}
+            marginRight={{ base: 6, md: 8 }}
+            gridRow={{ base: '1 / 3', md: '1 / 5' }}
           >
             <Image
               src={ logoUrl }
               alt={ `${ title } app icon` }
+              borderRadius="md"
             />
           </Flex>
 
-          <Heading
-            as="h2"
-            gridColumn={ 2 }
-            fontSize={{ base: '2xl', sm: '3xl' }}
-            fontWeight="medium"
-            lineHeight={ 1 }
-            color="blue.600"
-          >
-            { title }
-          </Heading>
+          <Flex alignItems="center" mb={{ md: 2 }} gridColumn={ 2 }>
+            <Heading
+              level="2"
+              fontWeight="medium"
+              mr={ 2 }
+            >
+              { title }
+            </Heading>
+            <MarketplaceAppIntegrationIcon external={ external } internalWallet={ internalWallet }/>
+            <MarketplaceAppGraphLinks links={ graphLinks } ml={ 2 }/>
+            <DialogCloseTrigger ml="auto"/>
+          </Flex>
 
           <Text
-            variant="secondary"
+            color="text.secondary"
             gridColumn={ 2 }
-            fontSize="sm"
+            textStyle={{ base: 'sm', md: 'md' }}
             fontWeight="normal"
-            lineHeight={ 1 }
           >
             By{ nbsp }{ author }
           </Text>
 
-          <Box
-            gridColumn={{ base: '1 / 3', sm: 2 }}
-            marginTop={{ base: 6, sm: 0 }}
-          >
-            <Box display="flex">
-              <MarketplaceAppModalLink
-                id={ data.id }
-                url={ url }
-                external={ external }
-                title={ title }
-              />
-
-              <IconButton
-                aria-label="Mark as favorite"
-                title="Mark as favorite"
-                variant="outline"
-                colorScheme="gray"
-                w={ 9 }
-                h={ 8 }
-                onClick={ handleFavoriteClick }
-                icon={ isFavorite ?
-                  <Icon as={ starFilledIcon } w={ 4 } h={ 4 } color="yellow.400"/> :
-                  <Icon as={ starOutlineIcon } w={ 4 } h={ 4 } color="gray.300"/> }
+          { isRatingEnabled && (
+            <Box
+              gridColumn={{ base: '1 / 3', md: 2 }}
+              marginTop={{ base: 6, md: 3 }}
+              py={{ base: 0, md: 1.5 }}
+              width="fit-content"
+            >
+              <Rating
+                appId={ id }
+                rating={ rating }
+                ratingsTotalCount={ ratingsTotalCount }
+                userRating={ userRating }
+                fullView
+                source="App modal"
+                popoverContentProps={{ zIndex: 'modal' }}
               />
             </Box>
-          </Box>
-        </ModalHeader>
+          ) }
 
-        <ModalCloseButton/>
-
-        <ModalBody>
-          <Heading
-            as="h3"
-            fontSize="2xl"
-            marginBottom={ 4 }
+          <Box
+            gridColumn={{ base: '1 / 3', md: 2 }}
+            marginTop={{ base: 6, md: 3 }}
           >
-            Overview
-          </Heading>
+            <Flex flexWrap="wrap" gap={ 6 }>
+              <Flex width={{ base: '100%', md: 'auto' }} gap={ 2 }>
+                <Link href={ external ? url : route({ pathname: '/apps/[id]', query: { id: data.id } }) } external={ external } noIcon>
+                  <Button size="sm">
+                    Launch app
+                  </Button>
+                </Link>
 
-          <Box marginBottom={ 2 }>
+                <IconButton
+                  aria-label="Mark as favorite"
+                  title="Mark as favorite"
+                  variant="icon_secondary"
+                  size="md"
+                  onClick={ handleFavoriteClick }
+                  selected={ isFavorite }
+                >
+                  <FavoriteIcon isFavorite={ isFavorite }/>
+                </IconButton>
+
+                <CopyToClipboard
+                  text={ isBrowser() ? window.location.origin + `/apps/${ id }` : '' }
+                  type="share"
+                  variant="icon_secondary"
+                  size="md"
+                  ml={ 0 }
+                  boxSize={ 8 }
+                />
+              </Flex>
+            </Flex>
+          </Box>
+        </Box>
+
+        <DialogBody mb={ 6 }>
+          <Text>{ description }</Text>
+        </DialogBody>
+
+        <DialogFooter
+          display="flex"
+          flexDirection={{ base: 'column', md: 'row' }}
+          justifyContent={{ base: 'flex-start', md: 'space-between' }}
+          alignItems="flex-start"
+          gap={ 3 }
+        >
+          <Flex gap={ 2 } flexWrap="wrap">
             { categories.map((category) => (
-              <Tag
-                colorScheme="blue"
-                marginRight={ 2 }
-                marginBottom={ 2 }
+              <Badge
+                colorPalette="blue"
                 key={ category }
               >
                 { category }
-              </Tag>
+              </Badge>
             )) }
-          </Box>
+          </Flex>
 
-          <Text>{ description }</Text>
-        </ModalBody>
-
-        <ModalFooter
-          display="flex"
-          flexDirection={{ base: 'column', sm: 'row' }}
-          alignItems={{ base: 'flex-start', sm: 'center' }}
-        >
-          { site && (
-            <Link
-              isExternal
-              href={ site }
-              display="flex"
-              alignItems="center"
-              paddingRight={{ sm: 2 }}
-              marginBottom={{ base: 3, sm: 0 }}
-              maxW="100%"
-              overflow="hidden"
-            >
-              <Icon
-                as={ linkIcon }
-                display="inline"
-                verticalAlign="baseline"
-                boxSize="18px"
-                marginRight={ 2 }
-              />
-
-              <Text
-                color="inherit"
-                whiteSpace="nowrap"
-                overflow="hidden"
-                textOverflow="ellipsis"
+          <Flex alignItems="center" gap={ 3 } my="2px">
+            { site && (
+              <Link
+                external
+                href={ site }
+                display="flex"
+                alignItems="center"
+                textStyle="sm"
               >
-                { site }
-              </Text>
-            </Link>
-          ) }
+                <IconSvg
+                  name="link"
+                  display="inline"
+                  verticalAlign="baseline"
+                  boxSize="18px"
+                  marginRight={ 2 }
+                />
 
-          { socialLinks.length > 0 && (
-            <List
-              marginLeft={{ sm: 'auto' }}
-              display="grid"
-              gridAutoFlow="column"
-              columnGap={ 2 }
-            >
-              { socialLinks.map(({ icon, url }) => (
-                <Link
-                  aria-label={ `Link to ${ url }` }
-                  title={ url }
-                  key={ url }
-                  href={ url }
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  isExternal
-                  w={ 10 }
-                  h={ 10 }
+                <Text
+                  color="inherit"
+                  whiteSpace="nowrap"
+                  overflow="hidden"
+                  textOverflow="ellipsis"
                 >
-                  <Icon
-                    as={ icon }
-                    w="20px"
-                    h="20px"
-                    display="block"
-                  />
-                </Link>
-              )) }
-            </List>
-          ) }
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+                  { makePrettyLink(site)?.domain }
+                </Text>
+              </Link>
+            ) }
+
+            { socialLinks.map(({ icon, url }) => (
+              <Link
+                aria-label={ `Link to ${ url }` }
+                title={ url }
+                key={ url }
+                href={ url }
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                external
+                noIcon
+                flexShrink={ 0 }
+              >
+                <IconSvg
+                  name={ icon }
+                  color="icon.secondary"
+                  boxSize={ 5 }
+                />
+              </Link>
+            )) }
+          </Flex>
+        </DialogFooter>
+      </DialogContent>
+    </DialogRoot>
   );
 };
 

@@ -1,10 +1,13 @@
-import { Table, Tbody, Tr, Th } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TokenTransfer } from 'types/api/tokenTransfer';
 
+import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
+import { useMultichainContext } from 'lib/contexts/multichain';
+import { getChainDataForList } from 'lib/multichain/getChainDataForList';
+import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import * as SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
-import { default as Thead } from 'ui/shared/TheadSticky';
+import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 import TokenTransferTableItem from 'ui/shared/TokenTransfer/TokenTransferTableItem';
 
 interface Props {
@@ -14,7 +17,7 @@ interface Props {
   top: number;
   enableTimeIncrement?: boolean;
   showSocketInfo?: boolean;
-  socketInfoAlert?: string;
+  showSocketErrorAlert?: boolean;
   socketInfoNum?: number;
   isLoading?: boolean;
 }
@@ -26,47 +29,55 @@ const TokenTransferTable = ({
   top,
   enableTimeIncrement,
   showSocketInfo,
-  socketInfoAlert,
+  showSocketErrorAlert,
   socketInfoNum,
   isLoading,
 }: Props) => {
+  const multichainContext = useMultichainContext();
+  const chainData = getChainDataForList(multichainContext);
 
   return (
-    <Table variant="simple" size="sm" minW="950px">
-      <Thead top={ top }>
-        <Tr>
-          { showTxInfo && <Th width="44px"></Th> }
-          <Th width="185px">Token</Th>
-          <Th width="160px">Token ID</Th>
-          { showTxInfo && <Th width="25%">Txn hash</Th> }
-          <Th width="25%">From</Th>
-          { baseAddress && <Th width="50px" px={ 0 }/> }
-          <Th width="25%">To</Th>
-          <Th width="25%" isNumeric>Value</Th>
-        </Tr>
-      </Thead>
-      <Tbody>
-        { showSocketInfo && (
-          <SocketNewItemsNotice.Desktop
-            url={ window.location.href }
-            alert={ socketInfoAlert }
-            num={ socketInfoNum }
-            type="token_transfer"
-            isLoading={ isLoading }
-          />
-        ) }
-        { data.map((item, index) => (
-          <TokenTransferTableItem
-            key={ item.tx_hash + item.block_hash + item.log_index + (isLoading ? index : '') }
-            { ...item }
-            baseAddress={ baseAddress }
-            showTxInfo={ showTxInfo }
-            enableTimeIncrement={ enableTimeIncrement }
-            isLoading={ isLoading }
-          />
-        )) }
-      </Tbody>
-    </Table>
+    <AddressHighlightProvider>
+      <TableRoot minW="950px">
+        <TableHeaderSticky top={ top }>
+          <TableRow>
+            { showTxInfo && <TableColumnHeader width="48px"></TableColumnHeader> }
+            { chainData && <TableColumnHeader width={ showTxInfo ? '32px' : '38px' }/> }
+            <TableColumnHeader width="230px">Token</TableColumnHeader>
+            <TableColumnHeader width="160px">Token ID</TableColumnHeader>
+            { showTxInfo && (
+              <TableColumnHeader width="200px">
+                Txn hash
+                <TimeFormatToggle/>
+              </TableColumnHeader>
+            ) }
+            <TableColumnHeader width="60%">From/To</TableColumnHeader>
+            <TableColumnHeader width="40%" isNumeric>Value</TableColumnHeader>
+          </TableRow>
+        </TableHeaderSticky>
+        <TableBody>
+          { showSocketInfo && (
+            <SocketNewItemsNotice.Desktop
+              showErrorAlert={ showSocketErrorAlert }
+              num={ socketInfoNum }
+              type="token_transfer"
+              isLoading={ isLoading }
+            />
+          ) }
+          { data.map((item, index) => (
+            <TokenTransferTableItem
+              key={ item.transaction_hash + item.block_hash + item.log_index + (isLoading ? index : '') }
+              { ...item }
+              baseAddress={ baseAddress }
+              showTxInfo={ showTxInfo }
+              enableTimeIncrement={ enableTimeIncrement }
+              isLoading={ isLoading }
+              chainData={ chainData }
+            />
+          )) }
+        </TableBody>
+      </TableRoot>
+    </AddressHighlightProvider>
   );
 };
 

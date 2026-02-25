@@ -1,9 +1,10 @@
-import { useColorModeValue, useToken, useTheme } from '@chakra-ui/react';
-import { transparentize } from '@chakra-ui/theme-tools';
+import { useToken } from '@chakra-ui/react';
 import * as d3 from 'd3';
 import React from 'react';
 
 import type { TimeChartItem } from 'ui/shared/chart/types';
+
+import { useColorModeValue } from 'toolkit/chakra/color-mode';
 
 interface Props extends React.SVGProps<SVGPathElement> {
   id?: string;
@@ -11,22 +12,19 @@ interface Props extends React.SVGProps<SVGPathElement> {
   yScale: d3.ScaleTime<number, number> | d3.ScaleLinear<number, number>;
   color?: string;
   data: Array<TimeChartItem>;
-  disableAnimation?: boolean;
+  noAnimation?: boolean;
 }
 
-const ChartArea = ({ id, xScale, yScale, color, data, disableAnimation, ...props }: Props) => {
+const ChartArea = ({ id, xScale, yScale, color, data, noAnimation, ...props }: Props) => {
   const ref = React.useRef(null);
-  const theme = useTheme();
 
-  const gradientColorId = `${ id || 'gradient' }-${ color }-color`;
-  const gradientStopColor = useToken('colors', useColorModeValue('whiteAlpha.200', 'blackAlpha.100'));
   const defaultGradient = {
-    startColor: useToken('colors', useColorModeValue('blue.100', 'blue.400')),
-    stopColor: useToken('colors', transparentize(useColorModeValue('blue.100', 'blue.400'), 0)(theme)),
+    startColor: useToken('colors', useColorModeValue('theme.graph.gradient.start._light', 'theme.graph.gradient.start._dark')),
+    stopColor: useToken('colors', useColorModeValue('theme.graph.gradient.stop._light', 'theme.graph.gradient.stop._dark')),
   };
 
   React.useEffect(() => {
-    if (disableAnimation) {
+    if (noAnimation) {
       d3.select(ref.current).attr('opacity', 1);
       return;
     }
@@ -34,10 +32,11 @@ const ChartArea = ({ id, xScale, yScale, color, data, disableAnimation, ...props
       .duration(750)
       .ease(d3.easeBackIn)
       .attr('opacity', 1);
-  }, [ disableAnimation ]);
+  }, [ noAnimation ]);
 
   const d = React.useMemo(() => {
     const area = d3.area<TimeChartItem>()
+      .defined(({ isApproximate }) => !isApproximate)
       .x(({ date }) => xScale(date))
       .y1(({ value }) => yScale(value))
       .y0(() => yScale(yScale.domain()[0]))
@@ -50,26 +49,17 @@ const ChartArea = ({ id, xScale, yScale, color, data, disableAnimation, ...props
       <path
         ref={ ref }
         d={ d }
-        fill={ color ? `url(#${ gradientColorId })` : 'url(#gradient-chart-area-default)' }
+        fill="url(#gradient-chart-area-default)"
         opacity={ 0 }
         data-name={ id || 'gradient-chart-area' }
         { ...props }
       />
-      { color ? (
-        <defs>
-          <linearGradient id={ `${ gradientColorId }` } x1="0%" x2="0%" y1="0%" y2="100%">
-            <stop offset="0%" stopColor={ color }/>
-            <stop offset="100%" stopColor={ gradientStopColor }/>
-          </linearGradient>
-        </defs>
-      ) : (
-        <defs>
-          <linearGradient id="gradient-chart-area-default" x1="0%" x2="0%" y1="0%" y2="100%">
-            <stop offset="0%" stopColor={ defaultGradient.startColor }/>
-            <stop offset="100%" stopColor={ defaultGradient.stopColor }/>
-          </linearGradient>
-        </defs>
-      ) }
+      <defs>
+        <linearGradient id="gradient-chart-area-default" x1="0%" x2="0%" y1="0%" y2="100%">
+          <stop offset="0%" stopColor={ defaultGradient.startColor[0] }/>
+          <stop offset="100%" stopColor={ defaultGradient.stopColor[0] }/>
+        </linearGradient>
+      </defs>
     </>
   );
 };

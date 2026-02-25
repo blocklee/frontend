@@ -1,102 +1,109 @@
-import { Tr, Td, Grid, Skeleton, Box } from '@chakra-ui/react';
-import BigNumber from 'bignumber.js';
+import { Flex, Box } from '@chakra-ui/react';
 import React from 'react';
 
+import type { TokenInstance } from 'types/api/token';
 import type { TokenTransfer } from 'types/api/tokenTransfer';
 
-import eastArrowIcon from 'icons/arrows/east.svg';
-import useTimeAgoIncrement from 'lib/hooks/useTimeAgoIncrement';
-import Icon from 'ui/shared/chakra/Icon';
-import Tag from 'ui/shared/chakra/Tag';
-import AddressEntityWithTokenFilter from 'ui/shared/entities/address/AddressEntityWithTokenFilter';
+import getCurrencyValue from 'lib/getCurrencyValue';
+import { NFT_TOKEN_TYPE_IDS } from 'lib/token/tokenTypes';
+import { Badge } from 'toolkit/chakra/badge';
+import { Skeleton } from 'toolkit/chakra/skeleton';
+import { TableCell, TableRow } from 'toolkit/chakra/table';
+import AddressFromTo from 'ui/shared/address/AddressFromTo';
 import NftEntity from 'ui/shared/entities/nft/NftEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
+import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 
-type Props = TokenTransfer & { tokenId?: string; isLoading?: boolean }
+type Props = TokenTransfer & { tokenId?: string; isLoading?: boolean; instance?: TokenInstance };
 
 const TokenTransferTableItem = ({
   token,
   total,
-  tx_hash: txHash,
+  transaction_hash: txHash,
   from,
   to,
   method,
   timestamp,
   tokenId,
   isLoading,
+  instance,
 }: Props) => {
-  const timeAgo = useTimeAgoIncrement(timestamp, true);
+  const { usd, valueStr } = total && 'value' in total && total.value !== null ? getCurrencyValue({
+    value: total.value,
+    exchangeRate: token?.exchange_rate,
+    accuracy: 8,
+    accuracyUsd: 2,
+    decimals: total.decimals || '0',
+  }) : { usd: null, valueStr: null };
 
   return (
-    <Tr alignItems="top">
-      <Td>
-        <Grid alignItems="center" gridTemplateColumns="auto 130px" width="fit-content" py="7px">
+    <TableRow alignItems="top">
+      <TableCell>
+        <Flex flexDirection="column" alignItems="flex-start" mt="5px" rowGap={ 3 }>
           <TxEntity
             hash={ txHash }
             isLoading={ isLoading }
             fontWeight={ 600 }
             noIcon
+            truncation="constant_long"
           />
-          { timestamp && (
-            <Skeleton isLoaded={ !isLoading } display="inline-block" color="gray.500" fontWeight="400" ml="10px">
-              <span>
-                { timeAgo }
-              </span>
-            </Skeleton>
-          ) }
-        </Grid>
-      </Td>
-      <Td>
+          <TimeWithTooltip
+            timestamp={ timestamp }
+            enableIncrement
+            isLoading={ isLoading }
+            display="inline-block"
+            color="text.secondary"
+            fontWeight="400"
+          />
+        </Flex>
+      </TableCell>
+      <TableCell>
         { method ? (
           <Box my="3px">
-            <Tag isLoading={ isLoading } isTruncated>{ method }</Tag>
+            <Badge loading={ isLoading } truncated>{ method }</Badge>
           </Box>
         ) : null }
-      </Td>
-      <Td>
-        <AddressEntityWithTokenFilter
-          address={ from }
+      </TableCell>
+      <TableCell>
+        <AddressFromTo
+          from={ from }
+          to={ to }
           isLoading={ isLoading }
-          truncation="constant"
-          tokenHash={ token.address }
-          my="5px"
+          mt="5px"
+          mode={{ lg: 'compact', xl: 'long' }}
+          tokenHash={ token?.address_hash }
+          tokenSymbol={ token?.symbol ?? undefined }
         />
-      </Td>
-      <Td px={ 0 }>
-        <Box my="3px">
-          <Icon as={ eastArrowIcon } boxSize={ 6 } color="gray.500" isLoading={ isLoading }/>
-        </Box>
-      </Td>
-      <Td>
-        <AddressEntityWithTokenFilter
-          address={ to }
-          isLoading={ isLoading }
-          truncation="constant"
-          tokenHash={ token.address }
-          my="5px"
-        />
-      </Td>
-      { (token.type === 'ERC-721' || token.type === 'ERC-1155') && (
-        <Td>
-          { 'token_id' in total ? (
+      </TableCell>
+      { (token && NFT_TOKEN_TYPE_IDS.includes(token.type)) && (
+        <TableCell>
+          { total && 'token_id' in total && token && total.token_id !== null ? (
             <NftEntity
-              hash={ token.address }
+              hash={ token.address_hash }
               id={ total.token_id }
+              instance={ instance || total.token_instance }
               noLink={ Boolean(tokenId && tokenId === total.token_id) }
               isLoading={ isLoading }
             />
           ) : ''
           }
-        </Td>
+        </TableCell>
       ) }
-      { (token.type === 'ERC-20' || token.type === 'ERC-1155') && (
-        <Td isNumeric verticalAlign="top">
-          <Skeleton isLoaded={ !isLoading } my="7px">
-            { 'value' in total && BigNumber(total.value).div(BigNumber(10 ** Number(total.decimals))).dp(8).toFormat() }
-          </Skeleton>
-        </Td>
+      { token && (token.type === 'ERC-20' || token.type === 'ERC-1155' || token.type === 'ERC-404') && (
+        <TableCell isNumeric verticalAlign="top">
+          { valueStr && (
+            <Skeleton loading={ isLoading } display="inline-block" mt="7px" wordBreak="break-all">
+              { valueStr }
+            </Skeleton>
+          ) }
+          { usd && (
+            <Skeleton loading={ isLoading } color="text.secondary" mt="10px" wordBreak="break-all">
+              <span>${ usd }</span>
+            </Skeleton>
+          ) }
+        </TableCell>
       ) }
-    </Tr>
+    </TableRow>
   );
 };
 

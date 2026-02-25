@@ -1,47 +1,37 @@
-import {
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuOptionGroup,
-  MenuItemOption,
-  useDisclosure,
-} from '@chakra-ui/react';
+import { createListCollection } from '@chakra-ui/react';
 import React from 'react';
 
 import type { AddressFromToFilter } from 'types/api/address';
 
 import useIsInitialLoading from 'lib/hooks/useIsInitialLoading';
-import FilterButton from 'ui/shared/filters/FilterButton';
+import PopoverFilterRadio from 'ui/shared/filters/PopoverFilterRadio';
+
+const OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'from', label: 'Outgoing transactions' },
+  { value: 'to', label: 'Incoming transactions' },
+];
+const collection = createListCollection({ items: OPTIONS });
 
 interface Props {
-  isActive: boolean;
-  defaultFilter: AddressFromToFilter;
+  hasActiveFilter: boolean;
+  initialValue: AddressFromToFilter;
   onFilterChange: (nextValue: string | Array<string>) => void;
   isLoading?: boolean;
 }
 
-const AddressTxsFilter = ({ onFilterChange, defaultFilter, isActive, isLoading }: Props) => {
-  const { isOpen, onToggle } = useDisclosure();
+const AddressTxsFilter = ({ onFilterChange, initialValue, hasActiveFilter, isLoading }: Props) => {
   const isInitialLoading = useIsInitialLoading(isLoading);
 
   return (
-    <Menu>
-      <MenuButton>
-        <FilterButton
-          isActive={ isOpen || isActive }
-          isLoading={ isInitialLoading }
-          onClick={ onToggle }
-          as="div"
-        />
-      </MenuButton>
-      <MenuList zIndex={ 2 }>
-        <MenuOptionGroup defaultValue={ defaultFilter || 'all' } title="Address" type="radio" onChange={ onFilterChange }>
-          <MenuItemOption value="all">All</MenuItemOption>
-          <MenuItemOption value="from">From</MenuItemOption>
-          <MenuItemOption value="to">To</MenuItemOption>
-        </MenuOptionGroup>
-      </MenuList>
-    </Menu>
+    <PopoverFilterRadio
+      name="txs_filter"
+      collection={ collection }
+      onChange={ onFilterChange }
+      hasActiveFilter={ hasActiveFilter }
+      isLoading={ isInitialLoading }
+      initialValue={ initialValue }
+    />
   );
 };
 

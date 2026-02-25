@@ -14,21 +14,32 @@ if [ ! -f "$config_file" ]; then
     exit 1
 fi
 
-if [ ! -f "$secrets_file" ]; then
-    echo "Error: File '$secrets_file' not found."
-    exit 1
-fi
+# remove previous assets
+rm -rf ./public/assets/configs
+rm -rf ./public/assets/multichain
+rm -rf ./public/assets/envs.js
 
 # download assets for the running instance
 dotenv \
   -e $config_file \
-  -- bash -c './deploy/scripts/download_assets.sh ./public/assets'
+  -- bash -c './deploy/scripts/download_assets.sh ./public/assets/configs'
+
+# generate multichain config (adjust condition accordingly)
+if [[ "$preset_name" == "optimism_superchain" ]]; then
+  dotenv \
+    -e $config_file \
+    -- bash -c 'cd deploy/tools/multichain-config-generator && yarn install --silent && yarn build && yarn generate'
+fi
+
+source ./deploy/scripts/build_sprite.sh
+echo ""
 
 # generate envs.js file and run the app
 dotenv \
   -v NEXT_PUBLIC_GIT_COMMIT_SHA=$(git rev-parse --short HEAD) \
   -v NEXT_PUBLIC_GIT_TAG=$(git describe --tags --abbrev=0) \
+  -v NEXT_PUBLIC_ICON_SPRITE_HASH="${NEXT_PUBLIC_ICON_SPRITE_HASH}" \
   -e $config_file \
   -e $secrets_file \
-  -- bash -c './deploy/scripts/make_envs_script.sh && next dev -- -p $NEXT_PUBLIC_APP_PORT' |
+  -- bash -c './deploy/scripts/make_envs_script.sh && next dev -p $NEXT_PUBLIC_APP_PORT' |
 pino-pretty

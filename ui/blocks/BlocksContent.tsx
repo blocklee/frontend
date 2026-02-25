@@ -5,34 +5,48 @@ import React from 'react';
 import type { SocketMessage } from 'lib/socket/types';
 import type { BlockType, BlocksResponse } from 'types/api/block';
 
+import { route } from 'nextjs/routes';
+
 import { getResourceKey } from 'lib/api/useApiQuery';
+import { useMultichainContext } from 'lib/contexts/multichain';
 import useIsMobile from 'lib/hooks/useIsMobile';
+import { getChainDataForList } from 'lib/multichain/getChainDataForList';
 import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
+import { Link } from 'toolkit/chakra/link';
 import BlocksList from 'ui/blocks/BlocksList';
 import BlocksTable from 'ui/blocks/BlocksTable';
 import ActionBar from 'ui/shared/ActionBar';
 import DataListDisplay from 'ui/shared/DataListDisplay';
+import IconSvg from 'ui/shared/IconSvg';
 import Pagination from 'ui/shared/pagination/Pagination';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
 import * as SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
 
 const OVERLOAD_COUNT = 75;
+const TABS_HEIGHT = 88;
 
-interface Props {
+export interface Props {
   type?: BlockType;
-  query: QueryWithPagesResult<'blocks'>;
+  query: QueryWithPagesResult<'general:blocks'> | QueryWithPagesResult<'general:optimistic_l2_txn_batch_blocks'>;
+  enableSocket?: boolean;
+  top?: number;
 }
 
-const BlocksContent = ({ type, query }: Props) => {
+const BlocksContent = ({ type, query, enableSocket = true, top }: Props) => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const [ socketAlert, setSocketAlert ] = React.useState('');
+  const multichainContext = useMultichainContext();
+
+  const [ showSocketAlert, setShowSocketAlert ] = React.useState(false);
 
   const [ newItemsCount, setNewItemsCount ] = React.useState(0);
 
   const handleNewBlockMessage: SocketMessage.NewBlock['handler'] = React.useCallback((payload) => {
-    const queryKey = getResourceKey('blocks', { queryParams: { type } });
+    const queryKey = getResourceKey('general:blocks', {
+      queryParams: { type },
+      chainSlug: multichainContext?.chain?.slug,
+    });
 
     queryClient.setQueryData(queryKey, (prevData: BlocksResponse | undefined) => {
       const shouldAddToList = !type || type === payload.block.type;
@@ -56,21 +70,21 @@ const BlocksContent = ({ type, query }: Props) => {
       const newItems = [ payload.block, ...prevData.items ].sort((b1, b2) => b2.height - b1.height);
       return { ...prevData, items: newItems };
     });
-  }, [ queryClient, type ]);
+  }, [ multichainContext?.chain?.slug, queryClient, type ]);
 
   const handleSocketClose = React.useCallback(() => {
-    setSocketAlert('Connection is lost. Please refresh the page to load new blocks.');
+    setShowSocketAlert(true);
   }, []);
 
   const handleSocketError = React.useCallback(() => {
-    setSocketAlert('An error has occurred while fetching new blocks. Please refresh the page to load new blocks.');
+    setShowSocketAlert(true);
   }, []);
 
   const channel = useSocketChannel({
     topic: 'blocks:new_block',
     onSocketClose: handleSocketClose,
     onSocketError: handleSocketError,
-    isDisabled: query.isPlaceholderData || query.isError || query.pagination.page !== 1,
+    isDisabled: query.isPlaceholderData || query.isError || query.pagination.page !== 1 || !enableSocket,
   });
   useSocketMessage({
     channel,
@@ -78,36 +92,42 @@ const BlocksContent = ({ type, query }: Props) => {
     handler: handleNewBlockMessage,
   });
 
+  const chainData = getChainDataForList(multichainContext);
+
   const content = query.data?.items ? (
     <>
-      <Box display={{ base: 'block', lg: 'none' }}>
-        { query.pagination.page === 1 && (
+      <Box hideFrom="lg">
+        { query.pagination.page === 1 && enableSocket && (
           <SocketNewItemsNotice.Mobile
-            url={ window.location.href }
             num={ newItemsCount }
-            alert={ socketAlert }
+            showErrorAlert={ showSocketAlert }
             type="block"
             isLoading={ query.isPlaceholderData }
           />
         ) }
-        <BlocksList data={ query.data.items } isLoading={ query.isPlaceholderData } page={ query.pagination.page }/>
+        <BlocksList data={ query.data.items } isLoading={ query.isPlaceholderData } page={ query.pagination.page } chainData={ chainData }/>
       </Box>
-      <Box display={{ base: 'none', lg: 'block' }}>
+      <Box hideBelow="lg">
         <BlocksTable
           data={ query.data.items }
-          top={ query.pagination.isVisible ? 80 : 0 }
+          top={ top || (query.pagination.isVisible ? TABS_HEIGHT : 0) }
           page={ query.pagination.page }
           isLoading={ query.isPlaceholderData }
-          showSocketInfo={ query.pagination.page === 1 }
+          showSocketInfo={ query.pagination.page === 1 && enableSocket }
           socketInfoNum={ newItemsCount }
-          socketInfoAlert={ socketAlert }
+          showSocketErrorAlert={ showSocketAlert }
+          chainData={ chainData }
         />
       </Box>
     </>
   ) : null;
 
-  const actionBar = isMobile && query.pagination.isVisible ? (
+  const actionBar = isMobile ? (
     <ActionBar mt={ -6 }>
+      <Link href={ route({ pathname: '/block/countdown' }, multichainContext) }>
+        <IconSvg name="hourglass_slim" boxSize={ 5 } mr={ 2 }/>
+        <span>Block countdown</span>
+      </Link>
       <Pagination ml="auto" { ...query.pagination }/>
     </ActionBar>
   ) : null;
@@ -115,11 +135,12 @@ const BlocksContent = ({ type, query }: Props) => {
   return (
     <DataListDisplay
       isError={ query.isError }
-      items={ query.data?.items }
+      itemsNum={ query.data?.items?.length }
       emptyText="There are no blocks."
-      content={ content }
       actionBar={ actionBar }
-    />
+    >
+      { content }
+    </DataListDisplay>
   );
 };
 

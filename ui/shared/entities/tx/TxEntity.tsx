@@ -1,17 +1,22 @@
-import type { As } from '@chakra-ui/react';
 import { chakra } from '@chakra-ui/react';
-import _omit from 'lodash/omit';
 import React from 'react';
 
-import { route } from 'nextjs-routes';
+import { route } from 'nextjs/routes';
 
-import transactionIcon from 'icons/transactions_slim.svg';
+import { useMultichainContext } from 'lib/contexts/multichain';
+import getChainTooltipText from 'lib/multichain/getChainTooltipText';
+import getIconUrl from 'lib/multichain/getIconUrl';
 import * as EntityBase from 'ui/shared/entities/base/components';
+
+import { distributeEntityProps } from '../base/utils';
 
 type LinkProps = EntityBase.LinkBaseProps & Pick<EntityProps, 'hash'>;
 
 const Link = chakra((props: LinkProps) => {
-  const defaultHref = route({ pathname: '/tx/[hash]', query: { hash: props.hash } });
+  const defaultHref = route(
+    { pathname: '/tx/[hash]', query: { hash: props.hash } },
+    props.chain ? { chain: props.chain } : undefined,
+  );
 
   return (
     <EntityBase.Link
@@ -23,26 +28,24 @@ const Link = chakra((props: LinkProps) => {
   );
 });
 
-type IconProps = Omit<EntityBase.IconBaseProps, 'asProp'> & {
-  asProp?: As;
-};
-
-const Icon = (props: IconProps) => {
+const Icon = (props: EntityBase.IconBaseProps) => {
   return (
     <EntityBase.Icon
       { ...props }
-      asProp={ props.asProp ?? transactionIcon }
+      name={ 'name' in props ? props.name : 'transactions_slim' }
+      shield={ props.shield ?? (props.chain ? { src: getIconUrl(props.chain) } : undefined) }
+      hint={ props.chain ? getChainTooltipText(props.chain, 'Transaction on ') : undefined }
     />
   );
 };
 
-type ContentProps = Omit<EntityBase.ContentBaseProps, 'text'> & Pick<EntityProps, 'hash'>;
+type ContentProps = Omit<EntityBase.ContentBaseProps, 'text'> & Pick<EntityProps, 'hash' | 'text'>;
 
 const Content = chakra((props: ContentProps) => {
   return (
     <EntityBase.Content
       { ...props }
-      text={ props.hash }
+      text={ props.text ?? props.hash }
     />
   );
 });
@@ -64,19 +67,20 @@ const Container = EntityBase.Container;
 
 export interface EntityProps extends EntityBase.EntityBaseProps {
   hash: string;
+  text?: string;
 }
 
 const TxEntity = (props: EntityProps) => {
-  const linkProps = _omit(props, [ 'className' ]);
-  const partsProps = _omit(props, [ 'className', 'onClick' ]);
+  const multichainContext = useMultichainContext();
+  const partsProps = distributeEntityProps(props, multichainContext);
+
+  const content = <Content { ...partsProps.content }/>;
 
   return (
-    <Container className={ props.className }>
-      <Icon { ...partsProps }/>
-      <Link { ...linkProps }>
-        <Content { ...partsProps }/>
-      </Link>
-      <Copy { ...partsProps }/>
+    <Container { ...partsProps.container }>
+      <Icon { ...partsProps.icon }/>
+      { props.noLink ? content : <Link { ...partsProps.link }>{ content }</Link> }
+      <Copy { ...partsProps.copy }/>
     </Container>
   );
 };

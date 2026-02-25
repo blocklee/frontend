@@ -5,24 +5,25 @@ import { route } from 'nextjs-routes';
 
 import useApiQuery from 'lib/api/useApiQuery';
 import useIsMobile from 'lib/hooks/useIsMobile';
-import useRedirectForInvalidAuthToken from 'lib/hooks/useRedirectForInvalidAuthToken';
 import { TX } from 'stubs/tx';
-import LinkInternal from 'ui/shared/LinkInternal';
+import { Link } from 'toolkit/chakra/link';
+import useRedirectForInvalidAuthToken from 'ui/snippets/auth/useRedirectForInvalidAuthToken';
 
 import LatestTxsItem from './LatestTxsItem';
+import LatestTxsItemMobile from './LatestTxsItemMobile';
 
 const LatestWatchlistTxs = () => {
   useRedirectForInvalidAuthToken();
   const isMobile = useIsMobile();
   const txsCount = isMobile ? 2 : 6;
-  const { data, isPlaceholderData, isError } = useApiQuery('homepage_txs_watchlist', {
+  const { data, isPlaceholderData, isError } = useApiQuery('general:homepage_txs_watchlist', {
     queryOptions: {
       placeholderData: Array(txsCount).fill(TX),
     },
   });
 
   if (isError) {
-    return <Text mt={ 4 }>No data. Please reload page.</Text>;
+    return <Text mt={ 4 }>No data. Please reload the page.</Text>;
   }
 
   if (!data?.length) {
@@ -33,7 +34,16 @@ const LatestWatchlistTxs = () => {
     const txsUrl = route({ pathname: '/txs', query: { tab: 'watchlist' } });
     return (
       <>
-        <Box mb={{ base: 3, lg: 4 }}>
+        <Box mb={ 3 } display={{ base: 'block', lg: 'none' }}>
+          { data.slice(0, txsCount).map(((tx, index) => (
+            <LatestTxsItemMobile
+              key={ tx.hash + (isPlaceholderData ? index : '') }
+              tx={ tx }
+              isLoading={ isPlaceholderData }
+            />
+          ))) }
+        </Box>
+        <Box mb={ 4 } display={{ base: 'none', lg: 'block' }}>
           { data.slice(0, txsCount).map(((tx, index) => (
             <LatestTxsItem
               key={ tx.hash + (isPlaceholderData ? index : '') }
@@ -43,7 +53,7 @@ const LatestWatchlistTxs = () => {
           ))) }
         </Box>
         <Flex justifyContent="center">
-          <LinkInternal fontSize="sm" href={ txsUrl }>View all watch list transactions</LinkInternal>
+          <Link textStyle="sm" href={ txsUrl }>View all watch list transactions</Link>
         </Flex>
       </>
     );

@@ -7,13 +7,16 @@ import type { CsvExportParams } from 'types/client/address';
 
 import type { ResourceName } from 'lib/api/resources';
 import useApiQuery from 'lib/api/useApiQuery';
-import { useAppContext } from 'lib/contexts/app';
+import { useMultichainContext } from 'lib/contexts/multichain';
+import throwOnAbsentParamError from 'lib/errors/throwOnAbsentParamError';
+import throwOnResourceLoadError from 'lib/errors/throwOnResourceLoadError';
 import useIsMobile from 'lib/hooks/useIsMobile';
-import { nbsp } from 'lib/html-entities';
+import { nbsp } from 'toolkit/utils/htmlEntities';
 import CsvExportForm from 'ui/csvExport/CsvExportForm';
+import ChainIcon from 'ui/optimismSuperchain/components/ChainIcon';
 import ContentLoader from 'ui/shared/ContentLoader';
-import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
+import TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import PageTitle from 'ui/shared/Page/PageTitle';
 
 interface ExportTypeEntity {
@@ -27,30 +30,40 @@ interface ExportTypeEntity {
 const EXPORT_TYPES: Record<CsvExportParams['type'], ExportTypeEntity> = {
   transactions: {
     text: 'transactions',
-    resource: 'csv_export_txs',
+    resource: 'general:address_csv_export_txs',
     fileNameTemplate: 'transactions',
     filterType: 'address',
     filterValues: AddressFromToFilterValues,
   },
   'internal-transactions': {
     text: 'internal transactions',
-    resource: 'csv_export_internal_txs',
+    resource: 'general:address_csv_export_internal_txs',
     fileNameTemplate: 'internal_transactions',
     filterType: 'address',
     filterValues: AddressFromToFilterValues,
   },
   'token-transfers': {
     text: 'token transfers',
-    resource: 'csv_export_token_transfers',
+    resource: 'general:address_csv_export_token_transfers',
     fileNameTemplate: 'token_transfers',
     filterType: 'address',
     filterValues: AddressFromToFilterValues,
   },
   logs: {
     text: 'logs',
-    resource: 'csv_export_logs',
+    resource: 'general:address_csv_export_logs',
     fileNameTemplate: 'logs',
     filterType: 'topic',
+  },
+  holders: {
+    text: 'holders',
+    resource: 'general:token_csv_export_holders',
+    fileNameTemplate: 'holders',
+  },
+  'epoch-rewards': {
+    text: 'epoch rewards',
+    resource: 'general:address_csv_export_celo_election_rewards',
+    fileNameTemplate: 'epoch_rewards',
   },
 };
 
@@ -58,45 +71,51 @@ const isCorrectExportType = (type: string): type is CsvExportParams['type'] => O
 
 const CsvExport = () => {
   const router = useRouter();
-  const appProps = useAppContext();
   const isMobile = useIsMobile();
+  const multichainContext = useMultichainContext();
 
   const addressHash = router.query.address?.toString() || '';
-  const exportType = router.query.type?.toString() || '';
+  const exportTypeParam = router.query.type?.toString() || '';
+  const exportType = isCorrectExportType(exportTypeParam) ? EXPORT_TYPES[exportTypeParam] : null;
   const filterTypeFromQuery = router.query.filterType?.toString() || null;
   const filterValueFromQuery = router.query.filterValue?.toString();
 
-  const addressQuery = useApiQuery('address', {
+  const addressQuery = useApiQuery('general:address', {
     pathParams: { hash: addressHash },
     queryOptions: {
       enabled: Boolean(addressHash),
     },
   });
 
-  const backLink = React.useMemo(() => {
-    const hasGoBackLink = appProps.referrer && appProps.referrer.includes('/address');
+  const tokenQuery = useApiQuery('general:token', {
+    pathParams: { hash: addressHash },
+    queryOptions: {
+      enabled: Boolean(addressHash) && exportTypeParam === 'holders',
+    },
+  });
 
-    if (!hasGoBackLink) {
-      return;
-    }
+  const configQuery = useApiQuery('general:config_csv_export', {
+    queryOptions: {
+      enabled: Boolean(addressHash),
+    },
+  });
 
-    return {
-      label: 'Back to address',
-      url: appProps.referrer,
-    };
-  }, [ appProps.referrer ]);
+  const isLoading = addressQuery.isPending || configQuery.isPending || (exportTypeParam === 'holders' && tokenQuery.isPending);
 
-  if (!isCorrectExportType(exportType) || !addressHash || addressQuery.error?.status === 400) {
-    throw Error('Not found', { cause: { status: 404 } });
+  throwOnAbsentParamError(addressHash);
+  throwOnAbsentParamError(exportType);
+
+  if (!exportType) {
+    return null;
   }
 
-  const filterType = filterTypeFromQuery === EXPORT_TYPES[exportType].filterType ? filterTypeFromQuery : null;
+  const filterType = filterTypeFromQuery === exportType.filterType ? filterTypeFromQuery : null;
   const filterValue = (() => {
     if (!filterType || !filterValueFromQuery) {
       return null;
     }
 
-    if (EXPORT_TYPES[exportType].filterValues && !EXPORT_TYPES[exportType].filterValues?.includes(filterValueFromQuery)) {
+    if (exportType.filterValues && !exportType.filterValues?.includes(filterValueFromQuery)) {
       return null;
     }
 
@@ -104,43 +123,83 @@ const CsvExport = () => {
   })();
 
   const content = (() => {
-    if (addressQuery.isError) {
-      return <DataFetchAlert/>;
-    }
+    throwOnResourceLoadError(addressQuery);
 
-    if (addressQuery.isLoading) {
+    if (isLoading) {
       return <ContentLoader/>;
     }
 
     return (
       <CsvExportForm
         hash={ addressHash }
-        resource={ EXPORT_TYPES[exportType].resource }
+        resource={ exportType.resource }
+        exportType={ isCorrectExportType(exportTypeParam) ? exportTypeParam : undefined }
         filterType={ filterType }
         filterValue={ filterValue }
-        fileNameTemplate={ EXPORT_TYPES[exportType].fileNameTemplate }
+        fileNameTemplate={ exportType.fileNameTemplate }
       />
+    );
+  })();
+
+  const description = (() => {
+    if (isLoading) {
+      return null;
+    }
+
+    const chainInfo = multichainContext?.chain ? (
+      <Flex display="inline-flex" alignItems="center" columnGap={ 2 }>
+        <span>on</span>
+        <ChainIcon data={ multichainContext.chain }/>
+        <span>{ multichainContext.chain.config.chain.name }</span>
+      </Flex>
+    ) : null;
+
+    const limit = (configQuery.data?.limit || 10_000).toLocaleString(undefined, { maximumFractionDigits: 3, notation: 'compact' });
+
+    if (exportTypeParam === 'holders' && tokenQuery.data) {
+      return (
+        <Flex mb={ 10 } whiteSpace="pre-wrap" flexWrap="wrap">
+          <span>Export { exportType.text } for token </span>
+          <TokenEntity
+            token={ tokenQuery.data }
+            truncation={ isMobile ? 'constant' : 'dynamic' }
+            w="fit-content"
+            maxW={{ base: '100%', lg: '400px' }}
+            noCopy
+            noSymbol
+          />
+          { chainInfo }
+          <span> to CSV file. </span>
+          <span>Exports are limited to the top { limit } holders by amount held.</span>
+        </Flex>
+      );
+    }
+
+    if (!addressQuery.data) {
+      return null;
+    }
+
+    return (
+      <Flex mb={ 10 } whiteSpace="pre-wrap" flexWrap="wrap">
+        <span>Export { exportType.text } for address </span>
+        <AddressEntity
+          address={ addressQuery.data }
+          truncation={ isMobile ? 'constant' : 'dynamic' }
+          noCopy
+        />
+        <span>{ nbsp }</span>
+        { filterType && filterValue && <span>with applied filter by { filterType } ({ filterValue })</span> }
+        { chainInfo }
+        <span> to CSV file. </span>
+        <span>Exports are limited to the last { limit } { exportType.text }.</span>
+      </Flex>
     );
   })();
 
   return (
     <>
-      <PageTitle
-        title="Export data to CSV file"
-        backLink={ backLink }
-      />
-      <Flex mb={ 10 } whiteSpace="pre-wrap" flexWrap="wrap">
-        <span>Export { EXPORT_TYPES[exportType].text } for address </span>
-        <AddressEntity
-          address={{ hash: addressHash, is_contract: true, implementation_name: null }}
-          truncation={ isMobile ? 'constant' : 'dynamic' }
-          noCopy
-        />
-        <span>{ nbsp }</span>
-        { filterType && filterValue && <span>with applied filter by { filterType } ({ filterValue }) </span> }
-        <span>to CSV file. </span>
-        <span>Exports are limited to the last 10K { EXPORT_TYPES[exportType].text }.</span>
-      </Flex>
+      <PageTitle title="Export data to CSV file"/>
+      { description }
       { content }
     </>
   );

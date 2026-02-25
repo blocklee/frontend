@@ -2,6 +2,7 @@ import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import config from 'configs/app';
+import useEtherscanRedirects from 'lib/router/useEtherscanRedirects';
 import PageTitle from 'ui/shared/Page/PageTitle';
 
 import ChartsWidgetsList from '../stats/ChartsWidgetsList';
@@ -21,11 +22,16 @@ const Stats = () => {
     handleFilterChange,
     displayedCharts,
     filterQuery,
+    initialFilterQuery,
   } = useStats();
+
+  useEtherscanRedirects();
 
   return (
     <>
-      <PageTitle title={ `${ config.chain.name } stats` }/>
+      <PageTitle
+        title={ config.meta.seo.enhancedDataEnabled ? `${ config.chain.name } statistic & data` : `${ config.chain.name } stats` }
+      />
 
       <Box mb={{ base: 6, sm: 8 }}>
         <NumberWidgetsList/>
@@ -33,6 +39,8 @@ const Stats = () => {
 
       <Box mb={{ base: 6, sm: 8 }}>
         <StatsFilters
+          isLoading={ isPlaceholderData }
+          initialFilterValue={ initialFilterQuery }
           sections={ sections }
           currentSection={ currentSection }
           onSectionChange={ handleSectionChange }
@@ -44,6 +52,7 @@ const Stats = () => {
 
       <ChartsWidgetsList
         filterQuery={ filterQuery }
+        initialFilterQuery={ initialFilterQuery }
         isError={ isError }
         isPlaceholderData={ isPlaceholderData }
         charts={ displayedCharts }

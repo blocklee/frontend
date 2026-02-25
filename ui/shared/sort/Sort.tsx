@@ -1,58 +1,71 @@
-import {
-  chakra,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuOptionGroup,
-  MenuItemOption,
-  useDisclosure,
-} from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import React from 'react';
 
-import SortButton from './SortButton';
+import useIsMobile from 'lib/hooks/useIsMobile';
+import { IconButton } from 'toolkit/chakra/icon-button';
+import type { SelectRootProps } from 'toolkit/chakra/select';
+import { SelectContent, SelectItem, SelectRoot, SelectControl, SelectValueText } from 'toolkit/chakra/select';
+import IconSvg from 'ui/shared/IconSvg';
 
-export interface Option<Sort extends string> {
-  title: string;
-  id: Sort | undefined;
-}
-
-interface Props<Sort extends string> {
-  options: Array<Option<Sort>>;
-  sort: Sort | undefined;
-  setSort: (value: Sort | undefined) => void;
+export interface Props extends SelectRootProps {
   isLoading?: boolean;
 }
 
-const Sort = <Sort extends string>({ sort, setSort, options, isLoading }: Props<Sort>) => {
-  const { isOpen, onToggle } = useDisclosure();
+const Sort = (props: Props) => {
+  const { collection, isLoading, ...rest } = props;
+  const isMobile = useIsMobile(false);
 
-  const setSortingFromMenu = React.useCallback((val: string | Array<string>) => {
-    const value = val as Sort | Array<Sort>;
-    setSort(Array.isArray(value) ? value[0] : value);
-  }, [ setSort ]);
+  const trigger = (() => {
+    if (isMobile) {
+      return (
+        <SelectControl triggerProps={{ asChild: true }} noIndicator>
+          <IconButton
+            loadingSkeleton={ isLoading }
+            aria-label="sort"
+            size="md"
+            variant="dropdown"
+          >
+            <IconSvg name="arrows/up-down"/>
+          </IconButton>
+        </SelectControl>
+      );
+    }
+
+    return (
+      <SelectControl
+        loading={ isLoading }
+        _hover={{ color: 'hover' }}
+        _open={{ color: 'hover' }}
+      >
+        <chakra.span
+          flexShrink={ 0 }
+          fontWeight="normal"
+          color={{ _light: 'blackAlpha.600', _dark: 'whiteAlpha.600' }}
+          _groupHover={{ color: 'inherit' }}
+          _groupExpanded={{ color: 'inherit' }}
+        >
+          Sort by
+        </chakra.span>
+        <SelectValueText
+          color={{ _light: 'blackAlpha.800', _dark: 'whiteAlpha.800' }}
+          _groupHover={{ color: 'inherit' }}
+          _groupExpanded={{ color: 'inherit' }}
+        />
+      </SelectControl>
+    );
+  })();
 
   return (
-    <Menu>
-      <MenuButton as="div">
-        <SortButton
-          isActive={ isOpen || Boolean(sort) }
-          onClick={ onToggle }
-          isLoading={ isLoading }
-        />
-      </MenuButton>
-      <MenuList minWidth="240px" zIndex="popover">
-        <MenuOptionGroup value={ sort } title="Sort by" type="radio" onChange={ setSortingFromMenu }>
-          { options.map((option) => (
-            <MenuItemOption
-              key={ option.id || 'default' }
-              value={ option.id }
-            >
-              { option.title }
-            </MenuItemOption>
-          )) }
-        </MenuOptionGroup>
-      </MenuList>
-    </Menu>
+    <SelectRoot collection={ collection } w="fit-content" variant="plain" { ...rest }>
+      { trigger }
+      <SelectContent>
+        { collection.items.map((item) => (
+          <SelectItem item={ item } key={ item.value }>
+            { item.label }
+          </SelectItem>
+        )) }
+      </SelectContent>
+    </SelectRoot>
   );
 };
 

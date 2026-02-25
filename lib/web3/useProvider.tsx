@@ -1,27 +1,31 @@
-import { WindowPostMessageStream } from '@metamask/post-message-stream';
-import { initializeProvider } from '@metamask/providers';
 import React from 'react';
-import type { WindowProvider } from 'wagmi';
 
-import 'wagmi/window';
-
+import { getFeaturePayload } from 'configs/app/features/types';
 import type { WalletType } from 'types/client/wallets';
+import type { WalletProvider } from 'types/web3';
 
 import config from 'configs/app';
-
-const feature = config.features.web3Wallet;
+import { useMultichainContext } from 'lib/contexts/multichain';
 
 export default function useProvider() {
-  const [ provider, setProvider ] = React.useState<WindowProvider>();
+  const [ provider, setProvider ] = React.useState<WalletProvider>();
   const [ wallet, setWallet ] = React.useState<WalletType>();
 
-  React.useEffect(() => {
-    if (!feature.isEnabled) {
+  const multichainContext = useMultichainContext();
+
+  const feature = (multichainContext?.chain.config ?? config).features.web3Wallet;
+  const wallets = getFeaturePayload(feature)?.wallets;
+
+  const initializeProvider = React.useMemo(() => async() => {
+    if (!feature.isEnabled || !wallets) {
       return;
     }
 
     if (!('ethereum' in window && window.ethereum)) {
-      if (feature.wallets.includes('metamask') && window.navigator.userAgent.includes('Firefox')) {
+      if (wallets.includes('metamask') && window.navigator.userAgent.includes('Firefox')) {
+        const { WindowPostMessageStream } = (await import('@metamask/post-message-stream'));
+        const { initializeProvider } = (await import('@metamask/providers'));
+
         // workaround for MetaMask in Firefox
         // Firefox blocks MetaMask injection script because of our CSP for 'script-src'
         // so we have to inject it manually while the issue is not fixed
@@ -51,7 +55,7 @@ export default function useProvider() {
     // if user has only one wallet, the provider is injected in the window.ethereum directly
     const providers = Array.isArray(window.ethereum.providers) ? window.ethereum.providers : [ window.ethereum ];
 
-    for (const wallet of feature.wallets) {
+    for (const wallet of wallets) {
       const provider = providers.find((provider) => {
         return (
           // some wallets (e.g TokenPocket, Liquality, etc) try to look like MetaMask but they are not (not even close)
@@ -71,7 +75,11 @@ export default function useProvider() {
         break;
       }
     }
-  }, []);
+  }, [ feature.isEnabled, wallets ]);
+
+  React.useEffect(() => {
+    initializeProvider();
+  }, [ initializeProvider ]);
 
   return { provider, wallet };
 }

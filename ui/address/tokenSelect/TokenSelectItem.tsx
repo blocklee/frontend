@@ -1,13 +1,19 @@
-import { chakra, Flex, Text, useColorModeValue } from '@chakra-ui/react';
+import { chakra, Flex } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
 import { route } from 'nextjs-routes';
 
+import config from 'configs/app';
+import getCurrencyValue from 'lib/getCurrencyValue';
+import { Link } from 'toolkit/chakra/link';
+import NativeTokenTag from 'ui/shared/celo/NativeTokenTag';
 import TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import TruncatedValue from 'ui/shared/TruncatedValue';
 
 import type { TokenEnhancedData } from '../utils/tokenUtils';
+
+const celoFeature = config.features.celo;
 
 interface Props {
   data: TokenEnhancedData;
@@ -15,10 +21,12 @@ interface Props {
 
 const TokenSelectItem = ({ data }: Props) => {
 
+  const isNativeToken = celoFeature.isEnabled && data.token.address_hash.toLowerCase() === celoFeature.nativeTokenAddress?.toLowerCase();
+
   const secondRow = (() => {
     switch (data.token.type) {
       case 'ERC-20': {
-        const tokenDecimals = Number(data.token.decimals) || 18;
+        const tokenDecimals = Number(data.token.decimals ?? 18);
         const text = `${ BigNumber(data.value).dividedBy(10 ** tokenDecimals).dp(8).toFormat() } ${ data.token.symbol || '' }`;
 
         return (
@@ -44,27 +52,44 @@ const TokenSelectItem = ({ data }: Props) => {
           </>
         );
       }
+      case 'ERC-404': {
+        return (
+          <>
+            { data.token_id !== null && (
+              <chakra.span textOverflow="ellipsis" overflow="hidden" mr={ 6 }>
+                #{ data.token_id || 0 }
+              </chakra.span>
+            ) }
+            { data.value !== null && (
+              <span>
+                { data.token.decimals ?
+                  getCurrencyValue({ value: data.value, decimals: data.token.decimals, accuracy: 2 }).valueStr :
+                  BigNumber(data.value).toFormat()
+                }
+              </span>
+            ) }
+          </>
+        );
+      }
     }
   })();
 
-  // TODO add filter param when token page is ready
-  const url = route({ pathname: '/token/[hash]', query: { hash: data.token.address } });
+  const url = route({ pathname: '/token/[hash]', query: { hash: data.token.address_hash } });
 
   return (
-    <Flex
+    <Link
       px={ 1 }
       py="10px"
       display="flex"
       flexDir="column"
       rowGap={ 2 }
-      borderColor="divider"
+      borderColor="border.divider"
       borderBottomWidth="1px"
       _hover={{
-        bgColor: useColorModeValue('blue.50', 'gray.800'),
+        bgColor: { _light: 'blue.50', _dark: 'gray.800' },
       }}
+      color="unset"
       fontSize="sm"
-      cursor="pointer"
-      as="a"
       href={ url }
     >
       <Flex alignItems="center" w="100%" overflow="hidden">
@@ -74,13 +99,25 @@ const TokenSelectItem = ({ data }: Props) => {
           noCopy
           noLink
           fontWeight={ 700 }
+          width="auto"
+          mr={ 2 }
         />
-        { data.usd && <Text fontWeight={ 700 } ml="auto">${ data.usd.toFormat(2) }</Text> }
+        { isNativeToken && <NativeTokenTag mr={ 2 }/> }
+        { data.usd && (
+          <TruncatedValue
+            value={ `$${ data.usd.toFormat(2) }` }
+            fontWeight={ 700 }
+            minW="120px"
+            ml="auto"
+            textAlign="right"
+            color={ isNativeToken ? 'text.secondary' : undefined }
+          />
+        ) }
       </Flex>
-      <Flex alignItems="center" justifyContent="space-between" w="100%" whiteSpace="nowrap">
+      <Flex alignItems="center" justifyContent="space-between" w="100%" whiteSpace="nowrap" color={ isNativeToken ? 'text.secondary' : undefined }>
         { secondRow }
       </Flex>
-    </Flex>
+    </Link>
   );
 };
 

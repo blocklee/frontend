@@ -1,4 +1,4 @@
-import { ChakraProvider } from '@chakra-ui/react';
+import { GrowthBookProvider } from '@growthbook/growthbook-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RenderOptions } from '@testing-library/react';
 import { render } from '@testing-library/react';
@@ -7,20 +7,20 @@ import React from 'react';
 import { AppContextProvider } from 'lib/contexts/app';
 import { ScrollDirectionProvider } from 'lib/contexts/scrollDirection';
 import { SocketProvider } from 'lib/socket/context';
-import theme from 'theme';
+import { Provider as ChakraProvider } from 'toolkit/chakra/provider';
 
 import 'lib/setLocale';
 
 const PAGE_PROPS = {
   cookies: '',
   referrer: '',
-  id: '',
-  height_or_hash: '',
-  hash: '',
-  q: '',
+  query: {},
+  adBannerProvider: null,
+  apiData: null,
+  uuid: '123',
 };
 
-const TestApp = ({ children }: {children: React.ReactNode}) => {
+const TestApp = ({ children }: { children: React.ReactNode }) => {
   const [ queryClient ] = React.useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -31,13 +31,15 @@ const TestApp = ({ children }: {children: React.ReactNode}) => {
   }));
 
   return (
-    <ChakraProvider theme={ theme }>
+    <ChakraProvider>
       <QueryClientProvider client={ queryClient }>
         <AppContextProvider pageProps={ PAGE_PROPS }>
           <ScrollDirectionProvider>
-            <SocketProvider>
-              { children }
-            </SocketProvider>
+            <GrowthBookProvider>
+              <SocketProvider>
+                { children }
+              </SocketProvider>
+            </GrowthBookProvider>
           </ScrollDirectionProvider>
         </AppContextProvider>
       </QueryClientProvider>

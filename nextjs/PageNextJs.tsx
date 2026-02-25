@@ -1,41 +1,36 @@
-import Head from 'next/head';
 import React from 'react';
 
 import type { Route } from 'nextjs-routes';
+import type { Props as PageProps } from 'nextjs/getServerSideProps/handlers';
+import PageMetadata from 'nextjs/PageMetadata';
 
 import useAdblockDetect from 'lib/hooks/useAdblockDetect';
 import useGetCsrfToken from 'lib/hooks/useGetCsrfToken';
-import * as metadata from 'lib/metadata';
+import useIsMounted from 'lib/hooks/useIsMounted';
+import useNotifyOnNavigation from 'lib/hooks/useNotifyOnNavigation';
 import * as mixpanel from 'lib/mixpanel';
-import useConfigSentry from 'lib/sentry/useConfigSentry';
 
-type Props = Route & {
+interface Props<Pathname extends Route['pathname']> {
+  pathname: Pathname;
   children: React.ReactNode;
+  query?: PageProps<Pathname>['query'];
+  apiData?: PageProps<Pathname>['apiData'];
 }
 
-const PageNextJs = (props: Props) => {
-  const { title, description, opengraph } = metadata.generate(props);
+const PageNextJs = <Pathname extends Route['pathname']>(props: Props<Pathname>) => {
+  const isMounted = useIsMounted();
 
   useGetCsrfToken();
   useAdblockDetect();
-  useConfigSentry();
+  useNotifyOnNavigation();
 
   const isMixpanelInited = mixpanel.useInit();
   mixpanel.useLogPageView(isMixpanelInited);
 
   return (
     <>
-      <Head>
-        <title>{ title }</title>
-        <meta name="description" content={ description }/>
-
-        { /* OG TAGS */ }
-        <meta property="og:title" content={ opengraph.title }/>
-        { opengraph.description && <meta property="og:description" content={ opengraph.description }/> }
-        <meta property="og:image" content={ opengraph.imageUrl }/>
-        <meta property="og:type" content="website"/>
-      </Head>
-      { props.children }
+      <PageMetadata pathname={ props.pathname } query={ props.query } apiData={ props.apiData }/>
+      { isMounted ? props.children : null }
     </>
   );
 };

@@ -1,32 +1,51 @@
-import { Heading } from '@chakra-ui/react';
 import React from 'react';
 
 import config from 'configs/app';
-import useHasAccount from 'lib/hooks/useHasAccount';
-import LatestDeposits from 'ui/home/LatestDeposits';
+import { SocketProvider } from 'lib/socket/context';
+import { Heading } from 'toolkit/chakra/heading';
+import AdaptiveTabs from 'toolkit/components/AdaptiveTabs/AdaptiveTabs';
+import LatestOptimisticDeposits from 'ui/home/latestDeposits/LatestOptimisticDeposits';
 import LatestTxs from 'ui/home/LatestTxs';
 import LatestWatchlistTxs from 'ui/home/LatestWatchlistTxs';
-import TabsWithScroll from 'ui/shared/Tabs/TabsWithScroll';
+import LatestZetaChainCCTXs from 'ui/home/latestZetaChainCCTX/LatestZetaChainCCTXs';
+import useAuth from 'ui/snippets/auth/useIsAuth';
+
+import LatestArbitrumDeposits from './latestDeposits/LatestArbitrumDeposits';
+
+const rollupFeature = config.features.rollup;
+const zetachainFeature = config.features.zetachain;
 
 const TransactionsHome = () => {
-  const hasAccount = useHasAccount();
-  if (config.features.rollup.isEnabled || hasAccount) {
+  const isAuth = useAuth();
+  if ((rollupFeature.isEnabled && (rollupFeature.type === 'optimistic' || rollupFeature.type === 'arbitrum')) || isAuth || zetachainFeature.isEnabled) {
     const tabs = [
-      { id: 'txn', title: 'Latest txn', component: <LatestTxs/> },
-      config.features.rollup.isEnabled && { id: 'deposits', title: 'Deposits (L1→L2 txn)', component: <LatestDeposits/> },
-      hasAccount && { id: 'watchlist', title: 'Watch list', component: <LatestWatchlistTxs/> },
+      zetachainFeature.isEnabled && {
+        id: 'cctx',
+        title: 'Cross-chain',
+        component: (
+          <SocketProvider url={ config.apis.zetachain?.socketEndpoint } name="zetachain">
+            <LatestZetaChainCCTXs/>
+          </SocketProvider>
+        ),
+      },
+      { id: 'txn', title: zetachainFeature.isEnabled ? 'ZetaChain EVM' : 'Latest txn', component: <LatestTxs/> },
+      rollupFeature.isEnabled && rollupFeature.type === 'optimistic' &&
+        { id: 'deposits', title: 'Deposits (L1→L2 txn)', component: <LatestOptimisticDeposits/> },
+      rollupFeature.isEnabled && rollupFeature.type === 'arbitrum' &&
+        { id: 'deposits', title: 'Deposits (L1→L2 txn)', component: <LatestArbitrumDeposits/> },
+      isAuth && { id: 'watchlist', title: 'Watch list', component: <LatestWatchlistTxs/> },
     ].filter(Boolean);
     return (
       <>
-        <Heading as="h4" size="sm" mb={ 4 }>Transactions</Heading>
-        <TabsWithScroll tabs={ tabs } lazyBehavior="keepMounted"/>
+        <Heading level="3" mb={ 3 }>Transactions</Heading>
+        <AdaptiveTabs tabs={ tabs } unmountOnExit={ false } listProps={{ mb: 3 }}/>
       </>
     );
   }
 
   return (
     <>
-      <Heading as="h4" size="sm" mb={ 4 }>Latest transactions</Heading>
+      <Heading level="3" mb={ 3 }>Latest transactions</Heading>
       <LatestTxs/>
     </>
   );

@@ -57,9 +57,9 @@ jobs:
         outputs:
             issues: ${{ steps.linked_issues.outputs.result }}
         steps:
-            -   name: Getting tags of the two latestest releases
+            -   name: Getting tags of the two latest releases
                 id: tags
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     TAG: ${{ inputs.tag }}
                 with:
@@ -89,6 +89,7 @@ jobs:
                         );
 
                         if (releases[0].tagName !== process.env.TAG) {
+                            core.info(`Current latest tag: ${ releases[0].tagName }`);
                             core.setFailed(`Release with tag ${ process.env.TAG } is not latest one.`);
                             return;
                         }
@@ -107,7 +108,7 @@ jobs:
             
             -   name: Looking for commits between two releases
                 id: commits
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     PREVIOUS_TAG: ${{ steps.tags.outputs.previous }}
                     LATEST_TAG: ${{ steps.tags.outputs.latest }}
@@ -136,7 +137,7 @@ jobs:
 
             -   name: Looking for issues linked to commits
                 id: linked_issues
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     COMMITS: ${{ steps.commits.outputs.result }}
                 with:
@@ -188,9 +189,14 @@ jobs:
                                             merged
                                             closingIssuesReferences(first: 10) {
                                                 nodes {
-                                                number
-                                                title
-                                                closed
+                                                    number
+                                                    title
+                                                    closed
+                                                    labels(first: 5) {
+                                                        nodes {
+                                                            description
+                                                        }
+                                                    }
                                                 }
                                             }
                                             }
@@ -214,6 +220,7 @@ jobs:
 
                             const issues = associatedPullRequests
                                 .nodes
+                                .filter(({ closingIssuesReferences: { nodes: issues } }) => !issues?.some(({ labels }) => labels?.nodes?.some(({ description }) => description.toLowerCase().startsWith('release'))))
                                 .map(({ closingIssuesReferences: { nodes: issues } }) => issues.map(({ number }) => number))
                                 .flat();
 
@@ -224,7 +231,7 @@ jobs:
 
             -   name: Creating label
                 id: label_creating
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     LABEL_NAME: ${{ inputs.label_name }}
                     LABEL_COLOR: ${{ inputs.label_color }}
@@ -252,7 +259,7 @@ jobs:
 
             -   name: Adding label to issues
                 id: labeling_issues
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     LABEL_NAME: ${{ inputs.label_name }}
                     ISSUES: ${{ steps.linked_issues.outputs.result }}

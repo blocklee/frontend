@@ -1,20 +1,20 @@
-import { Box, Flex, Link, Text, useColorModeValue } from '@chakra-ui/react';
+import { Box, Flex, Text } from '@chakra-ui/react';
 import React from 'react';
 
 import useIsMobile from 'lib/hooks/useIsMobile';
 import { clearRecentSearchKeywords, getRecentSearchKeywords, removeRecentSearchKeyword } from 'lib/recentSearchKeywords';
+import { Link } from 'toolkit/chakra/link';
+import { ClearButton } from 'toolkit/components/buttons/ClearButton';
 import TextAd from 'ui/shared/ad/TextAd';
-import ClearButton from 'ui/shared/ClearButton';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 
 type Props = {
   onClick: (kw: string) => void;
   onClear: () => void;
-}
+};
 
 const SearchBarSuggest = ({ onClick, onClear }: Props) => {
   const isMobile = useIsMobile();
-  const bgHoverColor = useColorModeValue('blue.50', 'gray.800');
 
   const [ keywords, setKeywords ] = React.useState<Array<string>>(getRecentSearchKeywords());
 
@@ -44,43 +44,49 @@ const SearchBarSuggest = ({ onClick, onClear }: Props) => {
   return (
     <Box py={ 6 }>
       { !isMobile && (
-        <Box pb={ 4 } mb={ 5 } borderColor="divider" borderBottomWidth="1px" _empty={{ display: 'none' }}>
+        <Box pb={ 4 } mb={ 5 } borderColor="border.divider" borderBottomWidth="1px" _empty={{ display: 'none' }}>
           <TextAd/>
         </Box>
       ) }
       <Flex mb={ 3 } justifyContent="space-between" fontSize="sm">
-        <Text fontWeight={ 600 } variant="secondary">Recent</Text>
+        <Text fontWeight={ 600 } color="text.secondary">Recent</Text>
         <Link onClick={ clearKeywords }>Clear all</Link>
       </Flex>
       { keywords.map(kw => (
-        <Box
+        <Flex
           key={ kw }
           py={ 3 }
           px={ 1 }
-          display="flex"
-          flexDir="column"
-          rowGap={ 2 }
-          borderColor="divider"
+          borderColor="border.divider"
           borderBottomWidth="1px"
           _last={{
             borderBottomWidth: '0',
           }}
           _hover={{
-            bgColor: bgHoverColor,
+            bgColor: { _light: 'blue.50', _dark: 'gray.800' },
           }}
           fontSize="sm"
           _first={{
             mt: 2,
           }}
           onClick={ handleClick(kw) }
+          alignItems="center"
+          justifyContent="space-between"
+          cursor="pointer"
+          columnGap={ 2 }
+          fontWeight={ 700 }
+          minW={ 0 }
+          flexGrow={ 1 }
         >
-          <Flex display="flex" alignItems="center" justifyContent="space-between" cursor="pointer">
-            <Text fontWeight={ 700 } mr={ 2 } w="calc(100% - 36px)" overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">
-              { kw.startsWith('0x') ? <HashStringShortenDynamic hash={ kw } isTooltipDisabled/> : kw }
-            </Text>
-            <ClearButton onClick={ removeKeyword(kw) }/>
-          </Flex>
-        </Box>
+          { kw.startsWith('0x') ? (
+            <Box overflow="hidden" whiteSpace="nowrap">
+              <HashStringShortenDynamic hash={ kw } noTooltip/>
+            </Box>
+          ) :
+            <Text overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">{ kw }</Text>
+          }
+          <ClearButton onClick={ removeKeyword(kw) }/>
+        </Flex>
       )) }
     </Box>
   );

@@ -7,121 +7,162 @@ import type {
   FormFieldsMultiPartFile,
   FormFieldsSourcify,
   FormFieldsStandardInput,
+  FormFieldsStandardInputZk,
+  FormFieldsStylusGitHubRepo,
   FormFieldsVyperContract,
   FormFieldsVyperMultiPartFile,
   FormFieldsVyperStandardInput,
 } from './types';
-import type { SmartContractVerificationMethod, SmartContractVerificationError, SmartContractVerificationConfig } from 'types/api/contract';
+import type {
+  SmartContractVerificationError,
+  SmartContractLicenseType,
+} from 'types/api/contract';
+import type { SmartContractVerificationConfig, SmartContractVerificationMethod } from 'types/client/contract';
 
 import type { Params as FetchParams } from 'lib/hooks/useFetch';
+import { stripLeadingSlash } from 'toolkit/utils/url';
 
 export const SUPPORTED_VERIFICATION_METHODS: Array<SmartContractVerificationMethod> = [
   'flattened-code',
   'standard-input',
   'sourcify',
   'multi-part',
+  'solidity-hardhat',
+  'solidity-foundry',
   'vyper-code',
   'vyper-multi-part',
   'vyper-standard-input',
+  'stylus-github-repository',
 ];
 
 export const METHOD_LABELS: Record<SmartContractVerificationMethod, string> = {
-  'flattened-code': 'Solidity (Flattened source code)',
+  'flattened-code': 'Solidity (Single file)',
   'standard-input': 'Solidity (Standard JSON input)',
   sourcify: 'Solidity (Sourcify)',
   'multi-part': 'Solidity (Multi-part files)',
   'vyper-code': 'Vyper (Contract)',
   'vyper-multi-part': 'Vyper (Multi-part files)',
   'vyper-standard-input': 'Vyper (Standard JSON input)',
+  'solidity-hardhat': 'Solidity (Hardhat)',
+  'solidity-foundry': 'Solidity (Foundry)',
+  'stylus-github-repository': 'Stylus (GitHub repository)',
 };
 
 export const DEFAULT_VALUES: Record<SmartContractVerificationMethod, FormFields> = {
   'flattened-code': {
-    method: {
-      value: 'flattened-code' as const,
-      label: METHOD_LABELS['flattened-code'],
-    },
+    address: '',
+    method: [ 'flattened-code' ],
     is_yul: false,
     name: '',
-    compiler: null,
-    evm_version: null,
+    compiler: [],
+    evm_version: [],
     is_optimization_enabled: true,
     optimization_runs: '200',
     code: '',
     autodetect_constructor_args: true,
     constructor_args: '',
     libraries: [],
+    license_type: [],
   },
   'standard-input': {
-    method: {
-      value: 'standard-input' as const,
-      label: METHOD_LABELS['standard-input'],
-    },
+    address: '',
+    method: [ 'standard-input' ],
     name: '',
-    compiler: null,
+    compiler: [],
     sources: [],
     autodetect_constructor_args: true,
     constructor_args: '',
+    license_type: [],
   },
   sourcify: {
-    method: {
-      value: 'sourcify' as const,
-      label: METHOD_LABELS.sourcify,
-    },
+    address: '',
+    method: [ 'sourcify' ],
     sources: [],
+    license_type: [],
   },
   'multi-part': {
-    method: {
-      value: 'multi-part' as const,
-      label: METHOD_LABELS['multi-part'],
-    },
-    compiler: null,
-    evm_version: null,
+    address: '',
+    method: [ 'multi-part' ],
+    compiler: [],
+    evm_version: [],
     is_optimization_enabled: true,
     optimization_runs: '200',
     sources: [],
     libraries: [],
+    license_type: [],
   },
   'vyper-code': {
-    method: {
-      value: 'vyper-code' as const,
-      label: METHOD_LABELS['vyper-code'],
-    },
+    address: '',
+    method: [ 'vyper-code' ],
     name: '',
-    compiler: null,
-    evm_version: null,
+    compiler: [],
+    evm_version: [],
     code: '',
     constructor_args: '',
+    license_type: [],
   },
   'vyper-multi-part': {
-    method: {
-      value: 'vyper-multi-part' as const,
-      label: METHOD_LABELS['vyper-multi-part'],
-    },
-    compiler: null,
-    evm_version: null,
+    address: '',
+    method: [ 'vyper-multi-part' ],
+    compiler: [],
+    evm_version: [],
     sources: [],
+    license_type: [],
   },
   'vyper-standard-input': {
-    method: {
-      value: 'vyper-standard-input' as const,
-      label: METHOD_LABELS['vyper-standard-input'],
-    },
-    compiler: null,
+    address: '',
+    method: [ 'vyper-standard-input' ],
+    compiler: [],
     sources: [],
+    license_type: [],
+  },
+  'solidity-hardhat': {
+    address: '',
+    method: [ 'solidity-hardhat' ],
+    compiler: [],
+    sources: [],
+    license_type: [],
+  },
+  'solidity-foundry': {
+    address: '',
+    method: [ 'solidity-foundry' ],
+    compiler: [],
+    sources: [],
+    license_type: [],
+  },
+  'stylus-github-repository': {
+    address: '',
+    method: [ 'stylus-github-repository' ],
+    compiler: [],
+    repository_url: '',
+    commit_hash: '',
+    path_prefix: '',
+    license_type: [],
   },
 };
 
-export function getDefaultValues(method: SmartContractVerificationMethod, config: SmartContractVerificationConfig) {
-  const defaultValues = DEFAULT_VALUES[method];
+export function getDefaultValues(
+  methodParam: SmartContractVerificationMethod | undefined,
+  config: SmartContractVerificationConfig,
+  hash: string | undefined,
+  licenseType: FormFields['license_type'],
+) {
+  const singleMethod = config.verification_options.length === 1 ? config.verification_options[0] : undefined;
+  const method = singleMethod || methodParam;
+
+  if (!method) {
+    return { address: hash || '' };
+  }
+
+  const defaultValues: FormFields = { ...DEFAULT_VALUES[method], address: hash || '', license_type: licenseType };
 
   if ('evm_version' in defaultValues) {
     if (method === 'flattened-code' || method === 'multi-part') {
-      defaultValues.evm_version = config.solidity_evm_versions.find((value) => value === 'default') ? { label: 'default', value: 'default' } : null;
+      defaultValues.evm_version = config.solidity_evm_versions.find((value) => value === 'default') ? [ 'default' ] : [];
     }
 
     if (method === 'vyper-multi-part') {
-      defaultValues.evm_version = config.vyper_evm_versions.find((value) => value === 'default') ? { label: 'default', value: 'default' } : null;
+      defaultValues.evm_version = config.vyper_evm_versions.find((value) => value === 'default') ? [ 'default' ] : [];
     }
   }
 
@@ -130,6 +171,10 @@ export function getDefaultValues(method: SmartContractVerificationMethod, config
       'name' in defaultValues && (defaultValues.name = undefined);
       'autodetect_constructor_args' in defaultValues && (defaultValues.autodetect_constructor_args = false);
     }
+  }
+
+  if (singleMethod) {
+    defaultValues.method = config.verification_options;
   }
 
   return defaultValues;
@@ -155,32 +200,39 @@ export function sortVerificationMethods(methodA: SmartContractVerificationMethod
 }
 
 export function prepareRequestBody(data: FormFields): FetchParams['body'] {
-  switch (data.method.value) {
+  const defaultLicenseType: SmartContractLicenseType = 'none';
+
+  switch (data.method[0]) {
     case 'flattened-code': {
       const _data = data as FormFieldsFlattenSourceCode;
       return {
-        compiler_version: _data.compiler?.value,
+        compiler_version: _data.compiler?.[0],
         source_code: _data.code,
         is_optimization_enabled: _data.is_optimization_enabled,
         is_yul_contract: _data.is_yul,
         optimization_runs: _data.optimization_runs,
         contract_name: _data.name || undefined,
         libraries: reduceLibrariesArray(_data.libraries),
-        evm_version: _data.evm_version?.value,
+        evm_version: _data.evm_version?.[0],
         autodetect_constructor_args: _data.autodetect_constructor_args,
         constructor_args: _data.constructor_args,
+        license_type: _data.license_type?.[0] ?? defaultLicenseType,
       };
     }
 
     case 'standard-input': {
-      const _data = data as FormFieldsStandardInput;
+      const _data = data as (FormFieldsStandardInput | FormFieldsStandardInputZk);
 
       const body = new FormData();
-      _data.compiler && body.set('compiler_version', _data.compiler.value);
+      _data.compiler && body.set('compiler_version', _data.compiler?.[0]);
+      body.set('license_type', _data.license_type?.[0] ?? defaultLicenseType);
       body.set('contract_name', _data.name);
       body.set('autodetect_constructor_args', String(Boolean(_data.autodetect_constructor_args)));
       body.set('constructor_args', _data.constructor_args);
       addFilesToFormData(body, _data.sources, 'files');
+
+      // zkSync fields
+      'zk_compiler' in _data && _data.zk_compiler && body.set('zk_compiler_version', _data.zk_compiler?.[0]);
 
       return body;
     }
@@ -189,7 +241,8 @@ export function prepareRequestBody(data: FormFields): FetchParams['body'] {
       const _data = data as FormFieldsSourcify;
       const body = new FormData();
       addFilesToFormData(body, _data.sources, 'files');
-      _data.contract_index && body.set('chosen_contract_index', _data.contract_index.value);
+      body.set('chosen_contract_index', _data.contract_index?.value ?? '0');
+      _data.license_type && body.set('license_type', _data.license_type?.[0] ?? defaultLicenseType);
 
       return body;
     }
@@ -198,8 +251,9 @@ export function prepareRequestBody(data: FormFields): FetchParams['body'] {
       const _data = data as FormFieldsMultiPartFile;
 
       const body = new FormData();
-      _data.compiler && body.set('compiler_version', _data.compiler.value);
-      _data.evm_version && body.set('evm_version', _data.evm_version.value);
+      _data.compiler && body.set('compiler_version', _data.compiler?.[0]);
+      _data.evm_version && body.set('evm_version', _data.evm_version?.[0]);
+      body.set('license_type', _data.license_type?.[0] ?? defaultLicenseType);
       body.set('is_optimization_enabled', String(Boolean(_data.is_optimization_enabled)));
       _data.is_optimization_enabled && body.set('optimization_runs', _data.optimization_runs);
 
@@ -214,11 +268,12 @@ export function prepareRequestBody(data: FormFields): FetchParams['body'] {
       const _data = data as FormFieldsVyperContract;
 
       return {
-        compiler_version: _data.compiler?.value,
-        evm_version: _data.evm_version?.value,
+        compiler_version: _data.compiler?.[0],
+        evm_version: _data.evm_version?.[0],
         source_code: _data.code,
         contract_name: _data.name,
         constructor_args: _data.constructor_args,
+        license_type: _data.license_type?.[0] ?? defaultLicenseType,
       };
     }
 
@@ -226,8 +281,9 @@ export function prepareRequestBody(data: FormFields): FetchParams['body'] {
       const _data = data as FormFieldsVyperMultiPartFile;
 
       const body = new FormData();
-      _data.compiler && body.set('compiler_version', _data.compiler.value);
-      _data.evm_version && body.set('evm_version', _data.evm_version.value);
+      _data.compiler && body.set('compiler_version', _data.compiler?.[0]);
+      _data.evm_version && body.set('evm_version', _data.evm_version?.[0]);
+      body.set('license_type', _data.license_type?.[0] ?? defaultLicenseType);
       addFilesToFormData(body, _data.sources, 'files');
       addFilesToFormData(body, _data.interfaces, 'interfaces');
 
@@ -238,10 +294,23 @@ export function prepareRequestBody(data: FormFields): FetchParams['body'] {
       const _data = data as FormFieldsVyperStandardInput;
 
       const body = new FormData();
-      _data.compiler && body.set('compiler_version', _data.compiler.value);
+      _data.compiler && body.set('compiler_version', _data.compiler?.[0]);
+      body.set('license_type', _data.license_type?.[0] ?? defaultLicenseType);
       addFilesToFormData(body, _data.sources, 'files');
 
       return body;
+    }
+
+    case 'stylus-github-repository': {
+      const _data = data as FormFieldsStylusGitHubRepo;
+
+      return {
+        cargo_stylus_version: _data.compiler?.[0],
+        repository_url: _data.repository_url,
+        commit: _data.commit_hash,
+        path_prefix: _data.path_prefix,
+        license_type: _data.license_type?.[0] ?? defaultLicenseType,
+      };
     }
 
     default: {
@@ -252,6 +321,10 @@ export function prepareRequestBody(data: FormFields): FetchParams['body'] {
 
 function reduceLibrariesArray(libraries: Array<ContractLibrary> | undefined) {
   if (!libraries || libraries.length === 0) {
+    return;
+  }
+
+  if (libraries.every((item) => item.name === '' && item.address === '')) {
     return;
   }
 
@@ -290,4 +363,17 @@ export function formatSocketErrors(errors: SmartContractVerificationError): Arra
 
     return [ API_ERROR_TO_FORM_FIELD[_key], { message: value.join(',') } ];
   });
+}
+
+export function getGitHubOwnerAndRepo(repositoryUrl: string) {
+  try {
+    const urlObj = new URL(repositoryUrl);
+    if (urlObj.hostname !== 'github.com') {
+      throw new Error();
+    }
+    const [ owner, repo, ...rest ] = stripLeadingSlash(urlObj.pathname).split('/');
+    return { owner, repo, rest, url: urlObj };
+  } catch (error) {
+    return;
+  }
 }

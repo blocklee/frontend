@@ -1,20 +1,14 @@
 import type { Feature } from './types';
 
-import { getEnvValue } from '../utils';
-
-const apiEndpoint = getEnvValue('NEXT_PUBLIC_STATS_API_HOST');
+import apis from '../apis';
 
 const title = 'Blockchain statistics';
 
-const config: Feature<{ api: { endpoint: string; basePath: string } }> = (() => {
-  if (apiEndpoint) {
+const config: Feature<{}> = (() => {
+  if (apis.stats) {
     return Object.freeze({
       title,
       isEnabled: true,
-      api: {
-        endpoint: apiEndpoint,
-        basePath: '',
-      },
     });
   }
 

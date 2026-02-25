@@ -1,48 +1,64 @@
-import { Show, Hide } from '@chakra-ui/react';
+import { Box } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import React from 'react';
 
+import useIsMounted from 'lib/hooks/useIsMounted';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { generateListStub } from 'stubs/utils';
 import { WITHDRAWAL } from 'stubs/withdrawals';
-import ActionBar from 'ui/shared/ActionBar';
+import ActionBar, { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import Pagination from 'ui/shared/pagination/Pagination';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
-import WithdrawalsListItem from 'ui/withdrawals/WithdrawalsListItem';
-import WithdrawalsTable from 'ui/withdrawals/WithdrawalsTable';
+import BeaconChainWithdrawalsListItem from 'ui/withdrawals/beaconChain/BeaconChainWithdrawalsListItem';
+import BeaconChainWithdrawalsTable from 'ui/withdrawals/beaconChain/BeaconChainWithdrawalsTable';
 
-const AddressWithdrawals = ({ scrollRef }: {scrollRef?: React.RefObject<HTMLDivElement>}) => {
+type Props = {
+  shouldRender?: boolean;
+  isQueryEnabled?: boolean;
+};
+const AddressWithdrawals = ({ shouldRender = true, isQueryEnabled = true }: Props) => {
   const router = useRouter();
+  const isMounted = useIsMounted();
 
   const hash = getQueryParamString(router.query.hash);
 
   const { data, isPlaceholderData, isError, pagination } = useQueryWithPages({
-    resourceName: 'address_withdrawals',
+    resourceName: 'general:address_withdrawals',
     pathParams: { hash },
-    scrollRef,
     options: {
-      placeholderData: generateListStub<'address_withdrawals'>(WITHDRAWAL, 50, { next_page_params: {
+      enabled: isQueryEnabled,
+      placeholderData: generateListStub<'general:address_withdrawals'>(WITHDRAWAL, 50, { next_page_params: {
         index: 5,
         items_count: 50,
       } }),
     },
   });
+
+  if (!isMounted || !shouldRender) {
+    return null;
+  }
+
   const content = data?.items ? (
     <>
-      <Show below="lg" ssr={ false }>
+      <Box hideFrom="lg">
         { data.items.map((item, index) => (
-          <WithdrawalsListItem
+          <BeaconChainWithdrawalsListItem
             key={ item.index + Number(isPlaceholderData ? index : '') }
             item={ item }
             view="address"
             isLoading={ isPlaceholderData }
           />
         )) }
-      </Show>
-      <Hide below="lg" ssr={ false }>
-        <WithdrawalsTable items={ data.items } view="address" top={ pagination.isVisible ? 80 : 0 } isLoading={ isPlaceholderData }/>
-      </Hide>
+      </Box>
+      <Box hideBelow="lg">
+        <BeaconChainWithdrawalsTable
+          items={ data.items }
+          view="address"
+          top={ pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }
+          isLoading={ isPlaceholderData }
+        />
+      </Box>
     </>
   ) : null ;
 
@@ -55,11 +71,12 @@ const AddressWithdrawals = ({ scrollRef }: {scrollRef?: React.RefObject<HTMLDivE
   return (
     <DataListDisplay
       isError={ isError }
-      items={ data?.items }
+      itemsNum={ data?.items?.length }
       emptyText="There are no withdrawals for this address."
-      content={ content }
       actionBar={ actionBar }
-    />
+    >
+      { content }
+    </DataListDisplay>
   );
 };
 

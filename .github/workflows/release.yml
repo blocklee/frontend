@@ -12,7 +12,7 @@ jobs:
         steps:
             -   name: Remove label
                 id: tags
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     LABEL_NAME: pre-release
                 with:
@@ -24,6 +24,11 @@ jobs:
                             state: 'all'
                         });
                 
+                        if (issues.length === 0) {
+                            core.notice(`No issues with label "${ process.env.LABEL_NAME }" found.`);
+                            return;
+                        }
+
                         const issueIds = issues.map(({ node_id }) => node_id);
                         const labelId = issues[0].labels.find(({ name }) => name === process.env.LABEL_NAME).node_id;
 
@@ -72,4 +77,25 @@ jobs:
     publish_image:
         name: Publish Docker image
         uses: './.github/workflows/publish-image.yml'
+        secrets: inherit
+        with:
+            platforms: linux/amd64,linux/arm64/v8
+            # NOTE: by default the image will be built with type=ref,event=tag; so we need to specify it here
+            tags: |
+                type=raw,value=latest
+
+    publish_toolkit:
+        name: Publish toolkit package to NPM
+        uses: './.github/workflows/toolkit-npm-publisher.yml'
+        secrets: inherit
+        with:
+            version: ${{ github.ref_name }}
+
+    # Temporary disable this step because it is broken
+    # There is an issue with building web3modal deps
+    upload_source_maps:
+        name: Upload source maps to Sentry
+        if: false
+        needs: publish_image
+        uses: './.github/workflows/upload-source-maps.yml'
         secrets: inherit

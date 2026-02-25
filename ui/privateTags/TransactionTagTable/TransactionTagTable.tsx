@@ -1,13 +1,8 @@
-import {
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-} from '@chakra-ui/react';
 import React from 'react';
 
 import type { TransactionTags, TransactionTag } from 'types/api/account';
+
+import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 
 import TransactionTagTableItem from './TransactionTagTableItem';
 
@@ -16,31 +11,32 @@ interface Props {
   isLoading: boolean;
   onEditClick: (data: TransactionTag) => void;
   onDeleteClick: (data: TransactionTag) => void;
+  top: number;
 }
 
-const AddressTagTable = ({ data, isLoading, onDeleteClick, onEditClick }: Props) => {
+const TransactionTagTable = ({ data, isLoading, onDeleteClick, onEditClick, top }: Props) => {
   return (
-    <Table variant="simple" minWidth="600px">
-      <Thead>
-        <Tr>
-          <Th width="75%">Transaction</Th>
-          <Th width="25%">Private tag</Th>
-          <Th width="108px"></Th>
-        </Tr>
-      </Thead>
-      <Tbody>
+    <TableRoot minWidth="600px">
+      <TableHeaderSticky top={ top }>
+        <TableRow>
+          <TableColumnHeader width="75%">Transaction</TableColumnHeader>
+          <TableColumnHeader width="25%">Private tag</TableColumnHeader>
+          <TableColumnHeader width="108px"></TableColumnHeader>
+        </TableRow>
+      </TableHeaderSticky>
+      <TableBody>
         { data?.map((item, index) => (
           <TransactionTagTableItem
-            key={ item.id + (isLoading ? index : '') }
+            key={ item.id + (isLoading ? String(index) : '') }
             item={ item }
             isLoading={ isLoading }
             onDeleteClick={ onDeleteClick }
             onEditClick={ onEditClick }
           />
         )) }
-      </Tbody>
-    </Table>
+      </TableBody>
+    </TableRoot>
   );
 };
 
-export default AddressTagTable;
+export default TransactionTagTable;

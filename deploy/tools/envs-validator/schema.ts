@@ -1,420 +1,136 @@
+/* eslint-disable max-len */
 declare module 'yup' {
   interface StringSchema {
-    // Yup's URL validator is not perfect so we made our own
-    // https://github.com/jquense/yup/pull/1859
     url(): never;
   }
 }
 
 import * as yup from 'yup';
-
-import type { AdButlerConfig, AdTextProviders, AdBannerProviders, AdCustomBannerConfig } from '../../../types/client/ad';
-import { SUPPORTED_AD_TEXT_PROVIDERS, SUPPORTED_AD_BANNER_PROVIDERS } from '../../../types/client/ad';
-import type { MarketplaceAppOverview } from '../../../types/client/marketplace';
+import type { 
+  AdButlerConfig, AdTextProviders, AdBannerProviders, AdBannerAdditionalProviders, AdCustomBannerConfig 
+} from '../../../types/client/adProviders';
+import { SUPPORTED_AD_TEXT_PROVIDERS, SUPPORTED_AD_BANNER_PROVIDERS, SUPPORTED_AD_BANNER_ADDITIONAL_PROVIDERS } from '../../../types/client/adProviders';
+import type { MarketplaceAppBase, MarketplaceAppSocialInfo } from '../../../types/client/marketplace';
 import type { NavItemExternal } from '../../../types/client/navigation-items';
-import type { WalletType } from '../../../types/client/wallets';
-import { SUPPORTED_WALLETS } from '../../../types/client/wallets';
-import type { CustomLink, CustomLinksGroup } from '../../../types/footerLinks';
-import type { ChainIndicatorId } from '../../../types/homepage';
-import { type NetworkVerificationType, type NetworkExplorer, type FeaturedNetwork, NETWORK_GROUPS } from '../../../types/networks';
-import { IDENTICON_TYPES } from '../../../types/views/address';
-import { BLOCK_FIELDS_IDS } from '../../../types/views/block';
-import type { BlockFieldId } from '../../../types/views/block';
-
 import { replaceQuotes } from '../../../configs/app/utils';
-import * as regexp from '../../../lib/regexp';
+import * as regexp from '../../../toolkit/utils/regexp';
+import type { IconName } from '../../../ui/shared/IconSvg';
+import { ROLLUP_TYPES } from '../../../types/client/rollup';
+import { API_DOCS_TABS } from '../../../types/views/apiDocs';
+import { ADDRESS_3RD_PARTY_WIDGET_PAGES } from '../../../types/views/address';
+import { NETWORK_GROUPS } from '../../../types/networks';
+import type { NetworkVerificationTypeEnvs, NetworkExplorer, FeaturedNetwork } from '../../../types/networks';
 
-const protocols = [ 'http', 'https' ];
+const protocols = ['http', 'https'];
 
 const urlTest: yup.TestConfig = {
   name: 'url',
   test: (value: unknown) => {
-    if (!value) {
-      return true;
-    }
-
+    if (!value) return true;
     try {
       if (typeof value === 'string') {
         new URL(value);
         return true;
       }
-    } catch (error) {}
-
+    } catch {}
     return false;
   },
   message: '${path} is not a valid URL',
   exclusive: true,
 };
 
-const marketplaceAppSchema: yup.ObjectSchema<MarketplaceAppOverview> = yup
-  .object({
-    id: yup.string().required(),
-    external: yup.boolean(),
-    title: yup.string().required(),
-    logo: yup.string().test(urlTest).required(),
-    logoDarkMode: yup.string().test(urlTest),
-    shortDescription: yup.string().required(),
-    categories: yup.array().of(yup.string().required()).required(),
-    url: yup.string().test(urlTest).required(),
-    author: yup.string().required(),
-    description: yup.string().required(),
-    site: yup.string().test(urlTest),
-    twitter: yup.string().test(urlTest),
-    telegram: yup.string().test(urlTest),
-    github: yup.string().test(urlTest),
-  });
+// ------------- Marketplace App Schema -------------
+const marketplaceAppSchema: yup.ObjectSchema<MarketplaceAppBase & MarketplaceAppSocialInfo> = yup.object({
+  id: yup.string().required(),
+  external: yup.boolean(),
+  title: yup.string().required(),
+  logo: yup.string().test(urlTest).required(),
+  logoDarkMode: yup.string().test(urlTest),
+  shortDescription: yup.string().required(),
+  categories: yup.array().of(yup.string().required()).required(),
+  url: yup.string().test(urlTest).required(),
+  author: yup.string().required(),
+  description: yup.string().required(),
+  site: yup.string().test(urlTest),
+  twitter: yup.string().test(urlTest),
+  telegram: yup.string().test(urlTest),
+  github: yup.lazy(value =>
+    Array.isArray(value)
+      ? yup.array().of(yup.string().required().test(urlTest))
+      : yup.string().test(urlTest),
+  ),
+  discord: yup.string().test(urlTest),
+  internalWallet: yup.boolean(),
+  priority: yup.number(),
+});
 
-const marketplaceSchema = yup
-  .object()
-  .shape({
-    NEXT_PUBLIC_DISABLE_DOWNLOAD_AT_RUN_TIME: yup.boolean(),
-    NEXT_PUBLIC_MARKETPLACE_CONFIG_URL: yup
-      .array()
-      .json()
-      .of(marketplaceAppSchema)
-      .when('NEXT_PUBLIC_DISABLE_DOWNLOAD_AT_RUN_TIME', {
-        is: (value: boolean) => value,
-        then: () => yup.array().notRequired(),
-        otherwise: () => yup.array().json().of(marketplaceAppSchema).required(),
-      }),
-    NEXT_PUBLIC_MARKETPLACE_SUBMIT_FORM: yup
-      .string()
-      .when('NEXT_PUBLIC_DISABLE_DOWNLOAD_AT_RUN_TIME', {
-        is: (value: boolean) => value,
-        then: () => yup.string().notRequired(),
-        otherwise: () => yup.string().when('NEXT_PUBLIC_MARKETPLACE_CONFIG_URL', {
-          is: (value: Array<unknown>) => value.length > 0,
-          then: (schema) => schema.test(urlTest).required(),
-          otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_SUBMIT_FORM cannot not be used without NEXT_PUBLIC_MARKETPLACE_CONFIG_URL'),
-        }),
-      }),
-  });
+// ------------- Marketplace Schema -------------
+const marketplaceSchema = yup.object().shape({
+  NEXT_PUBLIC_MARKETPLACE_ENABLED: yup.boolean(),
+  NEXT_PUBLIC_MARKETPLACE_CONFIG_URL: yup
+    .array()
+    .json()
+    .of(marketplaceAppSchema)
+    .when('NEXT_PUBLIC_MARKETPLACE_ENABLED', {
+      is: true,
+      then: (schema) => schema,
+      otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_CONFIG_URL cannot be used without NEXT_PUBLIC_MARKETPLACE_ENABLED'),
+    }),
+  NEXT_PUBLIC_MARKETPLACE_CATEGORIES_URL: yup
+    .array()
+    .json()
+    .of(yup.string())
+    .when('NEXT_PUBLIC_MARKETPLACE_ENABLED', {
+      is: true,
+      then: (schema) => schema,
+      otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_CATEGORIES_URL cannot be used without NEXT_PUBLIC_MARKETPLACE_ENABLED'),
+    }),
+  NEXT_PUBLIC_MARKETPLACE_SUBMIT_FORM: yup
+    .string()
+    .when('NEXT_PUBLIC_MARKETPLACE_ENABLED', {
+      is: true,
+      then: (schema) => schema.test(urlTest).required(),
+      otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_SUBMIT_FORM cannot be used without NEXT_PUBLIC_MARKETPLACE_ENABLED'),
+    }),
+  NEXT_PUBLIC_MARKETPLACE_SUGGEST_IDEAS_FORM: yup
+    .string()
+    .when('NEXT_PUBLIC_MARKETPLACE_ENABLED', {
+      is: true,
+      then: (schema) => schema.test(urlTest),
+      otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_SUGGEST_IDEAS_FORM cannot be used without NEXT_PUBLIC_MARKETPLACE_ENABLED'),
+    }),
+  NEXT_PUBLIC_MARKETPLACE_FEATURED_APP: yup
+    .string()
+    .when('NEXT_PUBLIC_MARKETPLACE_ENABLED', {
+      is: true,
+      then: (schema) => schema,
+      otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_FEATURED_APP cannot be used without NEXT_PUBLIC_MARKETPLACE_ENABLED'),
+    }),
+  NEXT_PUBLIC_MARKETPLACE_BANNER_CONTENT_URL: yup
+    .string()
+    .when('NEXT_PUBLIC_MARKETPLACE_ENABLED', {
+      is: true,
+      then: (schema) => schema.test(urlTest),
+      otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_BANNER_CONTENT_URL cannot be used without NEXT_PUBLIC_MARKETPLACE_ENABLED'),
+    }),
+  NEXT_PUBLIC_MARKETPLACE_BANNER_LINK_URL: yup
+    .string()
+    .when('NEXT_PUBLIC_MARKETPLACE_ENABLED', {
+      is: true,
+      then: (schema) => schema.test(urlTest),
+      otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_BANNER_LINK_URL cannot be used without NEXT_PUBLIC_MARKETPLACE_ENABLED'),
+    }),
+  NEXT_PUBLIC_MARKETPLACE_GRAPH_LINKS_URL: yup
+    .string()
+    .when('NEXT_PUBLIC_MARKETPLACE_ENABLED', {
+      is: true,
+      then: (schema) => schema,
+      otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_MARKETPLACE_GRAPH_LINKS_URL cannot be used without NEXT_PUBLIC_MARKETPLACE_ENABLED'),
+    }),
+});
 
-const beaconChainSchema = yup
-  .object()
-  .shape({
-    NEXT_PUBLIC_HAS_BEACON_CHAIN: yup.boolean(),
-    NEXT_PUBLIC_BEACON_CHAIN_CURRENCY_SYMBOL: yup
-      .string()
-      .when('NEXT_PUBLIC_HAS_BEACON_CHAIN', {
-        is: (value: boolean) => value,
-        then: (schema) => schema.min(1).optional(),
-        otherwise: (schema) => schema.max(
-          -1,
-          'NEXT_PUBLIC_BEACON_CHAIN_CURRENCY_SYMBOL cannot not be used if NEXT_PUBLIC_HAS_BEACON_CHAIN is not set to "true"',
-        ),
-      }),
-  });
-
-const rollupSchema = yup
-  .object()
-  .shape({
-    NEXT_PUBLIC_IS_L2_NETWORK: yup.boolean(),
-    NEXT_PUBLIC_L1_BASE_URL: yup
-      .string()
-      .when('NEXT_PUBLIC_IS_L2_NETWORK', {
-        is: (value: boolean) => value,
-        then: (schema) => schema.test(urlTest).required(),
-        otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_L1_BASE_URL cannot not be used if NEXT_PUBLIC_IS_L2_NETWORK is not set to "true"'),
-      }),
-    NEXT_PUBLIC_L2_WITHDRAWAL_URL: yup
-      .string()
-      .when('NEXT_PUBLIC_IS_L2_NETWORK', {
-        is: (value: string) => value,
-        then: (schema) => schema.test(urlTest).required(),
-        otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_L2_WITHDRAWAL_URL cannot not be used if NEXT_PUBLIC_IS_L2_NETWORK is not set to "true"'),
-      }),
-  });
-
-const adButlerConfigSchema = yup
-  .object<AdButlerConfig>()
-  .transform(replaceQuotes)
-  .json()
-  .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
-    is: (value: AdBannerProviders) => value === 'adbutler',
-    then: (schema) => schema
-      .shape({
-        id: yup.string().required(),
-        width: yup.number().positive().required(),
-        height: yup.number().positive().required(),
-      })
-      .required(),
-  });
-
-const adCustomBannerConfigSchema: yup.ObjectSchema<AdCustomBannerConfig> = yup
-  .object()
-  .shape({
-    text: yup.string(),
-    url: yup.string().test(urlTest),
-    desktopImageUrl: yup.string().test(urlTest).required(),
-    mobileImageUrl: yup.string().test(urlTest).required(),
-  });
-
-const adCustomConfigSchema = yup
-  .object()
-  .shape({
-    banners: yup
-      .array()
-      .of(adCustomBannerConfigSchema)
-      .required(),
-    interval: yup.number().positive(),
-    randomStart: yup.boolean(),
-    randomNextAd: yup.boolean(),
-  })
-  .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
-    is: (value: AdBannerProviders) => value === 'custom',
-    then: (schema) => schema,
-    otherwise: (schema) =>
-      schema.test(
-        'custom-validation',
-        'NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL cannot not be used without NEXT_PUBLIC_AD_BANNER_PROVIDER being set to "custom"',
-        () => false,
-      ),
-  });
-
-const adsBannerSchema = yup
-  .object()
-  .shape({
-    NEXT_PUBLIC_AD_BANNER_PROVIDER: yup.string<AdBannerProviders>().oneOf(SUPPORTED_AD_BANNER_PROVIDERS),
-    NEXT_PUBLIC_AD_ADBUTLER_CONFIG_DESKTOP: adButlerConfigSchema,
-    NEXT_PUBLIC_AD_ADBUTLER_CONFIG_MOBILE: adButlerConfigSchema,
-    NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL: adCustomConfigSchema,
-  });
-
-const sentrySchema = yup
-  .object()
-  .shape({
-    NEXT_PUBLIC_SENTRY_DSN: yup.string().test(urlTest),
-    SENTRY_CSP_REPORT_URI: yup
-      .string()
-      .when('NEXT_PUBLIC_SENTRY_DSN', {
-        is: (value: string) => Boolean(value),
-        then: (schema) => schema.test(urlTest),
-        otherwise: (schema) => schema.max(-1, 'SENTRY_CSP_REPORT_URI cannot not be used without NEXT_PUBLIC_SENTRY_DSN'),
-      }),
-    NEXT_PUBLIC_APP_INSTANCE: yup
-      .string()
-      .when('NEXT_PUBLIC_SENTRY_DSN', {
-        is: (value: string) => Boolean(value),
-        then: (schema) => schema,
-        otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_APP_INSTANCE cannot not be used without NEXT_PUBLIC_SENTRY_DSN'),
-      }),
-    NEXT_PUBLIC_APP_ENV: yup
-      .string()
-      .when('NEXT_PUBLIC_SENTRY_DSN', {
-        is: (value: string) => Boolean(value),
-        then: (schema) => schema,
-        otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_APP_ENV cannot not be used without NEXT_PUBLIC_SENTRY_DSN'),
-      }),
-  });
-
-const accountSchema = yup
-  .object()
-  .shape({
-    NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED: yup.boolean(),
-    NEXT_PUBLIC_AUTH0_CLIENT_ID: yup
-      .string()
-      .when('NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED', {
-        is: (value: boolean) => value,
-        then: (schema) => schema.required(),
-        otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_AUTH0_CLIENT_ID cannot not be used if NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED is not set to "true"'),
-      }),
-    NEXT_PUBLIC_AUTH_URL: yup
-      .string()
-      .when('NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED', {
-        is: (value: boolean) => value,
-        then: (schema) => schema.test(urlTest),
-        otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_AUTH_URL cannot not be used if NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED is not set to "true"'),
-      }),
-    NEXT_PUBLIC_LOGOUT_URL: yup
-      .string()
-      .when('NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED', {
-        is: (value: boolean) => value,
-        then: (schema) => schema.test(urlTest).required(),
-        otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_LOGOUT_URL cannot not be used if NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED is not set to "true"'),
-      }),
-    NEXT_PUBLIC_ADMIN_SERVICE_API_HOST: yup
-      .string()
-      .when('NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED', {
-        is: (value: boolean) => value,
-        then: (schema) => schema.test(urlTest),
-        otherwise: (schema) => schema.max(-1, 'NEXT_PUBLIC_ADMIN_SERVICE_API_HOST cannot not be used if NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED is not set to "true"'),
-      }),
-  });
-
-const featuredNetworkSchema: yup.ObjectSchema<FeaturedNetwork> = yup
-  .object()
-  .shape({
-    title: yup.string().required(),
-    url: yup.string().test(urlTest).required(),
-    group: yup.string().oneOf(NETWORK_GROUPS).required(),
-    icon: yup.string().test(urlTest),
-    isActive: yup.boolean(),
-    invertIconInDarkMode: yup.boolean(),
-  });
-
-const navItemExternalSchema: yup.ObjectSchema<NavItemExternal> = yup
-  .object({
-    text: yup.string().required(),
-    url: yup.string().test(urlTest).required(),
-  });
-
-const footerLinkSchema: yup.ObjectSchema<CustomLink> = yup
-  .object({
-    text: yup.string().required(),
-    url: yup.string().test(urlTest).required(),
-  });
-
-const footerLinkGroupSchema: yup.ObjectSchema<CustomLinksGroup> = yup
-  .object({
-    title: yup.string().required(),
-    links: yup
-      .array()
-      .of(footerLinkSchema)
-      .required(),
-  });
-
-const networkExplorerSchema: yup.ObjectSchema<NetworkExplorer> = yup
-  .object({
-    title: yup.string().required(),
-    baseUrl: yup.string().test(urlTest).required(),
-    paths: yup
-      .object()
-      .shape({
-        tx: yup.string(),
-        address: yup.string(),
-        token: yup.string(),
-        block: yup.string(),
-      }),
-  });
-
-const schema = yup
-  .object()
-  .noUnknown(true, (params) => {
-    return `Unknown ENV variables were provided: ${ params.unknown }`;
-  })
-  .shape({
-    // I. Build-time ENVs
-    // -----------------
-    NEXT_PUBLIC_GIT_TAG: yup.string(),
-    NEXT_PUBLIC_GIT_COMMIT_SHA: yup.string(),
-
-    // II. Run-time ENVs
-    // -----------------
-    // 1. App configuration
-    NEXT_PUBLIC_APP_HOST: yup.string().required(),
-    NEXT_PUBLIC_APP_PROTOCOL: yup.string().oneOf(protocols),
-    NEXT_PUBLIC_APP_PORT: yup.number().positive().integer(),
-    NEXT_PUBLIC_DISABLE_DOWNLOAD_AT_RUN_TIME: yup.boolean(),
-
-    // 2. Blockchain parameters
-    NEXT_PUBLIC_NETWORK_NAME: yup.string().required(),
-    NEXT_PUBLIC_NETWORK_SHORT_NAME: yup.string(),
-    NEXT_PUBLIC_NETWORK_ID: yup.number().positive().integer().required(),
-    NEXT_PUBLIC_NETWORK_RPC_URL: yup.string().test(urlTest),
-    NEXT_PUBLIC_NETWORK_CURRENCY_NAME: yup.string(),
-    NEXT_PUBLIC_NETWORK_CURRENCY_SYMBOL: yup.string(),
-    NEXT_PUBLIC_NETWORK_CURRENCY_DECIMALS: yup.number().integer().positive(),
-    NEXT_PUBLIC_NETWORK_GOVERNANCE_TOKEN_SYMBOL: yup.string(),
-    NEXT_PUBLIC_NETWORK_VERIFICATION_TYPE: yup.string<NetworkVerificationType>().oneOf([ 'validation', 'mining' ]),
-    NEXT_PUBLIC_IS_TESTNET: yup.boolean(),
-
-    // 3. API configuration
-    NEXT_PUBLIC_API_PROTOCOL: yup.string().oneOf(protocols),
-    NEXT_PUBLIC_API_HOST: yup.string().required(),
-    NEXT_PUBLIC_API_PORT: yup.number().integer().positive(),
-    NEXT_PUBLIC_API_BASE_PATH: yup.string(),
-    NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL: yup.string().oneOf([ 'ws', 'wss' ]),
-
-    // 4. UI configuration
-    //   a. homepage
-    NEXT_PUBLIC_HOMEPAGE_CHARTS: yup
-      .array()
-      .transform(replaceQuotes)
-      .json()
-      .of(yup.string<ChainIndicatorId>().oneOf([ 'daily_txs', 'coin_price', 'market_cap' ])),
-    NEXT_PUBLIC_HOMEPAGE_PLATE_TEXT_COLOR: yup.string(),
-    NEXT_PUBLIC_HOMEPAGE_PLATE_BACKGROUND: yup.string(),
-    NEXT_PUBLIC_HOMEPAGE_SHOW_GAS_TRACKER: yup.boolean(),
-    NEXT_PUBLIC_HOMEPAGE_SHOW_AVG_BLOCK_TIME: yup.boolean(),
-
-    //     b. sidebar
-    NEXT_PUBLIC_FEATURED_NETWORKS: yup
-      .array()
-      .json()
-      .of(featuredNetworkSchema),
-    NEXT_PUBLIC_OTHER_LINKS: yup
-      .array()
-      .transform(replaceQuotes)
-      .json()
-      .of(navItemExternalSchema),
-    NEXT_PUBLIC_NETWORK_LOGO: yup.string().test(urlTest),
-    NEXT_PUBLIC_NETWORK_LOGO_DARK: yup.string().test(urlTest),
-    NEXT_PUBLIC_NETWORK_ICON: yup.string().test(urlTest),
-    NEXT_PUBLIC_NETWORK_ICON_DARK: yup.string().test(urlTest),
-
-    //     c. footer
-    NEXT_PUBLIC_FOOTER_LINKS: yup
-      .array()
-      .json()
-      .of(footerLinkGroupSchema),
-
-    //     d. views
-    NEXT_PUBLIC_VIEWS_BLOCK_HIDDEN_FIELDS: yup
-      .array()
-      .transform(replaceQuotes)
-      .json()
-      .of(yup.string<BlockFieldId>().oneOf(BLOCK_FIELDS_IDS)),
-    NEXT_PUBLIC_VIEWS_ADDRESS_IDENTICON_TYPE: yup.string().oneOf(IDENTICON_TYPES),
-
-    //     e. misc
-    NEXT_PUBLIC_NETWORK_EXPLORERS: yup
-      .array()
-      .transform(replaceQuotes)
-      .json()
-      .of(networkExplorerSchema),
-    NEXT_PUBLIC_HIDE_INDEXING_ALERT: yup.boolean(),
-    NEXT_PUBLIC_MAINTENANCE_ALERT_MESSAGE: yup.string(),
-
-    // 5. Features configuration
-    NEXT_PUBLIC_API_SPEC_URL: yup.string().test(urlTest),
-    NEXT_PUBLIC_STATS_API_HOST: yup.string().test(urlTest),
-    NEXT_PUBLIC_VISUALIZE_API_HOST: yup.string().test(urlTest),
-    NEXT_PUBLIC_CONTRACT_INFO_API_HOST: yup.string().test(urlTest),
-    NEXT_PUBLIC_GRAPHIQL_TRANSACTION: yup.string().matches(regexp.HEX_REGEXP),
-    NEXT_PUBLIC_WEB3_WALLETS: yup
-      .mixed()
-      .test('shape', 'Invalid schema were provided for NEXT_PUBLIC_WEB3_WALLETS, it should be either array or "none" string literal', (data) => {
-        const isNoneSchema = yup.string().equals([ 'none' ]);
-        const isArrayOfWalletsSchema = yup
-          .array()
-          .transform(replaceQuotes)
-          .json()
-          .of(yup.string<WalletType>().oneOf(SUPPORTED_WALLETS));
-
-        return isNoneSchema.isValidSync(data) || isArrayOfWalletsSchema.isValidSync(data);
-      }),
-    NEXT_PUBLIC_WEB3_DISABLE_ADD_TOKEN_TO_WALLET: yup.boolean(),
-    NEXT_PUBLIC_AD_TEXT_PROVIDER: yup.string<AdTextProviders>().oneOf(SUPPORTED_AD_TEXT_PROVIDERS),
-    NEXT_PUBLIC_PROMOTE_BLOCKSCOUT_IN_TITLE: yup.boolean(),
-    NEXT_PUBLIC_OG_DESCRIPTION: yup.string(),
-    NEXT_PUBLIC_OG_IMAGE_URL: yup.string().test(urlTest),
-
-    // 6. External services envs
-    NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID: yup.string(),
-    NEXT_PUBLIC_RE_CAPTCHA_APP_SITE_KEY: yup.string(),
-    NEXT_PUBLIC_GOOGLE_ANALYTICS_PROPERTY_ID: yup.string(),
-    NEXT_PUBLIC_MIXPANEL_PROJECT_TOKEN: yup.string(),
-    NEXT_PUBLIC_FAVICON_GENERATOR_API_KEY: yup.string(),
-
-    // Misc
-    NEXT_PUBLIC_USE_NEXT_JS_PROXY: yup.boolean(),
-  })
-  .concat(accountSchema)
-  .concat(adsBannerSchema)
-  .concat(marketplaceSchema)
-  .concat(rollupSchema)
-  .concat(beaconChainSchema)
-  .concat(sentrySchema);
-
-export default schema;
+export {
+  urlTest,
+  marketplaceAppSchema,
+  marketplaceSchema,
+};

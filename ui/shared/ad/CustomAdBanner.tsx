@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import shuffle from 'lodash/shuffle';
 import React, { useState, useEffect } from 'react';
 
-import type { AdCustomConfig } from 'types/client/ad';
+import type { AdCustomConfig } from 'types/client/adProviders';
 
 import config from 'configs/app';
 import type { ResourceError } from 'lib/api/resources';

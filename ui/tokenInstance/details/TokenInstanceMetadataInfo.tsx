@@ -1,15 +1,16 @@
-import { Grid, GridItem, Skeleton, useColorModeValue } from '@chakra-ui/react';
+import { Grid, GridItem } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TokenInstance } from 'types/api/token';
 import type { MetadataAttributes } from 'types/client/token';
 
 import parseMetadata from 'lib/token/parseMetadata';
-import DetailsInfoItem from 'ui/shared/DetailsInfoItem';
-import LinkExternal from 'ui/shared/LinkExternal';
+import { Link } from 'toolkit/chakra/link';
+import { Skeleton } from 'toolkit/chakra/skeleton';
+import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import TruncatedValue from 'ui/shared/TruncatedValue';
 
-import TokenInstanceDivider from './TokenInstanceDivider';
+import { useMetadataUpdateContext } from '../contexts/metadataUpdate';
 
 interface Props {
   data?: TokenInstance;
@@ -22,21 +23,22 @@ interface ItemProps {
 }
 
 const Item = ({ data, isLoading }: ItemProps) => {
-  const attributeBgColor = useColorModeValue('blackAlpha.50', 'whiteAlpha.50');
-
   const value = (() => {
     if (data.value_type === 'URL') {
       return (
-        <LinkExternal
+        <Link
+          external
           whiteSpace="nowrap"
           display="inline-flex"
           alignItems="center"
           w="100%"
           overflow="hidden"
           href={ data.value }
+          textStyle="sm"
+          loading={ isLoading }
         >
-          <TruncatedValue value={ data.value } w="calc(100% - 16px)"/>
-        </LinkExternal>
+          <TruncatedValue value={ data.value } w="calc(100% - 16px)" isLoading={ isLoading }/>
+        </Link>
       );
     }
 
@@ -45,7 +47,7 @@ const Item = ({ data, isLoading }: ItemProps) => {
 
   return (
     <GridItem
-      bgColor={ attributeBgColor }
+      bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
       borderRadius="md"
       px={ 4 }
       py={ 2 }
@@ -53,62 +55,87 @@ const Item = ({ data, isLoading }: ItemProps) => {
       flexDir="column"
       alignItems="flex-start"
     >
-      <Skeleton isLoaded={ !isLoading } fontSize="xs" lineHeight={ 4 } color="text_secondary" fontWeight={ 500 } mb={ 1 }>
-        <span>{ data.trait_type }</span>
-      </Skeleton>
+      <TruncatedValue
+        value={ data.trait_type }
+        textStyle="xs"
+        w="100%"
+        color="text.secondary"
+        fontWeight={ 500 }
+        mb={ 1 }
+        isLoading={ isLoading }
+      />
       { value }
     </GridItem>
   );
 };
 
-const TokenInstanceMetadataInfo = ({ data, isLoading }: Props) => {
-  const metadata = React.useMemo(() => parseMetadata(data?.metadata), [ data ]);
-  const hasMetadata = metadata && Boolean((metadata.name || metadata.description || metadata.attributes));
+const TokenInstanceMetadataInfo = ({ data, isLoading: isLoadingProp }: Props) => {
+  const { status: refetchStatus } = useMetadataUpdateContext() || {};
 
+  const metadata = React.useMemo(() => parseMetadata(data?.metadata), [ data ]);
+
+  const hasMetadata = metadata && Boolean((metadata.name || metadata.description || metadata.attributes));
   if (!hasMetadata) {
     return null;
   }
 
+  const isLoading = isLoadingProp || refetchStatus === 'WAITING_FOR_RESPONSE';
+
   return (
     <>
-      <TokenInstanceDivider/>
+      <DetailedInfo.ItemDivider/>
       { metadata?.name && (
-        <DetailsInfoItem
-          title="Name"
-          hint="NFT name"
-          whiteSpace="normal"
-          wordBreak="break-word"
-          isLoading={ isLoading }
-        >
-          <Skeleton isLoaded={ !isLoading }>
-            { metadata.name }
-          </Skeleton>
-        </DetailsInfoItem>
+        <>
+          <DetailedInfo.ItemLabel
+            hint="NFT name"
+            isLoading={ isLoading }
+          >
+            Name
+          </DetailedInfo.ItemLabel>
+          <DetailedInfo.ItemValue
+            whiteSpace="normal"
+            wordBreak="break-word"
+          >
+            <Skeleton loading={ isLoading }>
+              { metadata.name }
+            </Skeleton>
+          </DetailedInfo.ItemValue>
+        </>
       ) }
       { metadata?.description && (
-        <DetailsInfoItem
-          title="Description"
-          hint="NFT description"
-          whiteSpace="normal"
-          wordBreak="break-word"
-          isLoading={ isLoading }
-        >
-          <Skeleton isLoaded={ !isLoading }>
-            { metadata.description }
-          </Skeleton>
-        </DetailsInfoItem>
+        <>
+          <DetailedInfo.ItemLabel
+            hint="NFT description"
+            isLoading={ isLoading }
+          >
+            Description
+          </DetailedInfo.ItemLabel>
+          <DetailedInfo.ItemValue
+            whiteSpace="normal"
+            wordBreak="break-word"
+          >
+            <Skeleton loading={ isLoading }>
+              { metadata.description }
+            </Skeleton>
+          </DetailedInfo.ItemValue>
+        </>
       ) }
-      { metadata?.attributes && (
-        <DetailsInfoItem
-          title="Attributes"
-          hint="NFT attributes"
-          whiteSpace="normal"
-          isLoading={ isLoading }
-        >
-          <Grid gap={ 2 } templateColumns="repeat(auto-fill,minmax(160px, 1fr))" w="100%">
-            { metadata.attributes.map((attribute, index) => <Item key={ index } data={ attribute } isLoading={ isLoading }/>) }
-          </Grid>
-        </DetailsInfoItem>
+      { metadata?.attributes && metadata.attributes.length > 0 && (
+        <>
+          <DetailedInfo.ItemLabel
+            hint="NFT attributes"
+            isLoading={ isLoading }
+          >
+            Attributes
+          </DetailedInfo.ItemLabel>
+          <DetailedInfo.ItemValue>
+            <Grid gap={ 2 } templateColumns="repeat(auto-fill,minmax(160px, 1fr))" w="100%" whiteSpace="normal">
+              { metadata.attributes
+                .filter((attribute) => attribute.value)
+                .map((attribute, index) => <Item key={ index } data={ attribute } isLoading={ isLoading }/>) }
+            </Grid>
+          </DetailedInfo.ItemValue>
+        </>
       ) }
     </>
   );

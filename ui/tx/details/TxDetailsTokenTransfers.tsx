@@ -1,19 +1,18 @@
-import { Icon, GridItem, Show, Flex } from '@chakra-ui/react';
+import { GridItem, Flex, Box } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TokenTransfer } from 'types/api/tokenTransfer';
 
 import { route } from 'nextjs-routes';
 
-import tokenIcon from 'icons/token.svg';
-import DetailsInfoItem from 'ui/shared/DetailsInfoItem';
-import LinkInternal from 'ui/shared/LinkInternal';
-
-import TxDetailsTokenTransfer from './TxDetailsTokenTransfer';
-
+import { Link } from 'toolkit/chakra/link';
+import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
+import IconSvg from 'ui/shared/IconSvg';
+import TokenTransferSnippet from 'ui/shared/TokenTransferSnippet/TokenTransferSnippet';
 interface Props {
   data: Array<TokenTransfer>;
   txHash: string;
+  isOverflow: boolean;
 }
 
 const TOKEN_TRANSFERS_TYPES = [
@@ -22,16 +21,14 @@ const TOKEN_TRANSFERS_TYPES = [
   { title: 'Tokens burnt', hint: 'List of tokens burnt in the transaction', type: 'token_burning' },
   { title: 'Tokens created', hint: 'List of tokens created in the transaction', type: 'token_spawning' },
 ];
-const VISIBLE_ITEMS_NUM = 3;
 
-const TxDetailsTokenTransfers = ({ data, txHash }: Props) => {
+const TxDetailsTokenTransfers = ({ data, txHash, isOverflow }: Props) => {
   const viewAllUrl = route({ pathname: '/tx/[hash]', query: { hash: txHash, tab: 'token_transfers' } });
 
   const transferGroups = TOKEN_TRANSFERS_TYPES.map((group) => ({
     ...group,
     items: data?.filter((token) => token.type === group.type) || [],
   }));
-  const showViewAllLink = transferGroups.some(({ items }) => items.length > VISIBLE_ITEMS_NUM);
 
   return (
     <>
@@ -41,32 +38,34 @@ const TxDetailsTokenTransfers = ({ data, txHash }: Props) => {
         }
 
         return (
-          <DetailsInfoItem
-            key={ type }
-            title={ title }
-            hint={ hint }
-            position="relative"
-          >
-            <Flex
-              flexDirection="column"
-              alignItems="flex-start"
-              rowGap={ 5 }
-              w="100%"
-              overflow="hidden"
+          <React.Fragment key={ type }>
+            <DetailedInfo.ItemLabel
+              hint={ hint }
             >
-              { items.slice(0, VISIBLE_ITEMS_NUM).map((item, index) => <TxDetailsTokenTransfer key={ index } data={ item }/>) }
-            </Flex>
-          </DetailsInfoItem>
+              { title }
+            </DetailedInfo.ItemLabel>
+            <DetailedInfo.ItemValue position="relative" multiRow>
+              <Flex
+                flexDirection="column"
+                alignItems="flex-start"
+                rowGap={ 1 }
+                w="100%"
+                overflow="hidden"
+              >
+                { items.map((item, index) => <TokenTransferSnippet key={ index } data={ item }/>) }
+              </Flex>
+            </DetailedInfo.ItemValue>
+          </React.Fragment>
         );
       }) }
-      { showViewAllLink && (
+      { isOverflow && (
         <>
-          <Show above="lg" ssr={ false }><GridItem></GridItem></Show>
+          <Box hideBelow="lg"><GridItem></GridItem></Box>
           <GridItem fontSize="sm" alignItems="center" display="inline-flex" pl={{ base: '28px', lg: 0 }}>
-            <Icon as={ tokenIcon } boxSize={ 6 }/>
-            <LinkInternal href={ viewAllUrl }>
+            <IconSvg name="token" boxSize={ 6 }/>
+            <Link href={ viewAllUrl }>
               View all
-            </LinkInternal>
+            </Link>
           </GridItem>
         </>
       ) }

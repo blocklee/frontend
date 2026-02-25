@@ -1,12 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import generateCspPolicy from 'nextjs/csp/generateCspPolicy';
+import * as csp from 'nextjs/csp/index';
 import * as middlewares from 'nextjs/middlewares/index';
 
-const cspPolicy = generateCspPolicy();
-
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const isPageRequest = req.headers.get('accept')?.includes('text/html');
   const start = Date.now();
 
@@ -19,11 +17,18 @@ export function middleware(req: NextRequest) {
     return accountResponse;
   }
 
-  const end = Date.now();
   const res = NextResponse.next();
-  res.headers.append('Content-Security-Policy', cspPolicy);
+
+  middlewares.colorTheme(req, res);
+  middlewares.addressFormat(req, res);
+  middlewares.scamTokens(req, res);
+
+  const end = Date.now();
+
+  const cspHeader = await csp.get();
+
+  res.headers.append('Content-Security-Policy', cspHeader);
   res.headers.append('Server-Timing', `middleware;dur=${ end - start }`);
-  // eslint-disable-next-line no-restricted-properties
   res.headers.append('Docker-ID', process.env.HOSTNAME || '');
 
   return res;

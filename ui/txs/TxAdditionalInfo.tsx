@@ -1,17 +1,11 @@
-import {
-  Modal,
-  ModalContent,
-  ModalCloseButton,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverBody,
-  useDisclosure,
-} from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import type { Transaction } from 'types/api/transaction';
 
+import { DialogContent, DialogHeader, DialogRoot, DialogTrigger, DialogBody } from 'toolkit/chakra/dialog';
+import { Heading } from 'toolkit/chakra/heading';
+import { PopoverBody, PopoverContent, PopoverRoot, PopoverTrigger } from 'toolkit/chakra/popover';
 import AdditionalInfoButton from 'ui/shared/AdditionalInfoButton';
 
 import TxAdditionalInfoContainer from './TxAdditionalInfoContainer';
@@ -28,42 +22,42 @@ type Props =
   }) & {
     isMobile?: boolean;
     isLoading?: boolean;
-  }
+    className?: string;
+  };
 
-const TxAdditionalInfo = ({ hash, tx, isMobile, isLoading }: Props) => {
-  const { isOpen, onOpen, onClose } = useDisclosure();
-
+const TxAdditionalInfo = ({ hash, tx, isMobile, isLoading, className }: Props) => {
   const content = hash !== undefined ? <TxAdditionalInfoContainer hash={ hash }/> : <TxAdditionalInfoContent tx={ tx }/>;
 
   if (isMobile) {
     return (
-      <>
-        <AdditionalInfoButton onClick={ onOpen } isLoading={ isLoading }/>
-        <Modal isOpen={ isOpen } onClose={ onClose } size="full">
-          <ModalContent paddingTop={ 4 }>
-            <ModalCloseButton/>
+      <DialogRoot size="full">
+        <DialogTrigger asChild>
+          <AdditionalInfoButton loading={ isLoading } className={ className }/>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            Additional info
+          </DialogHeader>
+          <DialogBody>
             { content }
-          </ModalContent>
-        </Modal>
-      </>
+          </DialogBody>
+        </DialogContent>
+      </DialogRoot>
     );
   }
   return (
-    <Popover placement="right-start" openDelay={ 300 } isLazy>
-      { ({ isOpen }) => (
-        <>
-          <PopoverTrigger>
-            <AdditionalInfoButton isOpen={ isOpen } isLoading={ isLoading }/>
-          </PopoverTrigger>
-          <PopoverContent border="1px solid" borderColor="divider">
-            <PopoverBody>
-              { content }
-            </PopoverBody>
-          </PopoverContent>
-        </>
-      ) }
-    </Popover>
+    <PopoverRoot positioning={{ placement: 'right-start' }}>
+      <PopoverTrigger>
+        <AdditionalInfoButton loading={ isLoading } className={ className }/>
+      </PopoverTrigger>
+      <PopoverContent w="330px">
+        <PopoverBody>
+          <Heading level="3" mb={ 6 }>Additional info </Heading>
+          { content }
+        </PopoverBody>
+      </PopoverContent>
+    </PopoverRoot>
   );
 };
 
-export default React.memo(TxAdditionalInfo);
+export default React.memo(chakra(TxAdditionalInfo));

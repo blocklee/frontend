@@ -1,10 +1,14 @@
-import { Box, Text, chakra, Skeleton } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import getCurrencyValue from 'lib/getCurrencyValue';
+import { currencyUnits } from 'lib/units';
+import { Skeleton } from 'toolkit/chakra/skeleton';
+import { Tooltip } from 'toolkit/chakra/tooltip';
+import { GWEI } from 'toolkit/utils/consts';
 
 interface Props {
-  value: string;
+  value: string | null;
   currency?: string;
   exchangeRate?: string | null;
   className?: string;
@@ -12,31 +16,43 @@ interface Props {
   accuracyUsd?: number;
   decimals?: string | null;
   isLoading?: boolean;
+  startElement?: React.ReactNode;
+  showGweiTooltip?: boolean;
 }
 
-const CurrencyValue = ({ value, currency = '', decimals, exchangeRate, className, accuracy, accuracyUsd, isLoading }: Props) => {
+const CurrencyValue = ({ value, currency = '', decimals, exchangeRate, className, accuracy, accuracyUsd, isLoading, startElement, showGweiTooltip }: Props) => {
   if (isLoading) {
     return (
-      <Skeleton className={ className } display="inline-block">0.00 ($0.00)</Skeleton>
+      <Skeleton className={ className } loading display="inline-block">0.00 ($0.00)</Skeleton>
     );
   }
 
   if (value === undefined || value === null) {
     return (
-      <Box as="span" className={ className }>
-        <Text>N/A</Text>
-      </Box>
+      <chakra.span className={ className }>
+        -
+      </chakra.span>
     );
   }
-  const { valueStr: valueResult, usd: usdResult } = getCurrencyValue({ value, accuracy, accuracyUsd, exchangeRate, decimals });
+  const { valueCurr, valueStr: valueResult, usd: usdResult } = getCurrencyValue({ value, accuracy, accuracyUsd, exchangeRate, decimals });
+
+  const valueElement = (
+    <chakra.span display="inline-block" maxW="100%" whiteSpace="pre" overflow="hidden" textOverflow="ellipsis">
+      { valueResult }{ currency ? ` ${ currency }` : '' }
+    </chakra.span>
+  );
+  const valueInGwei = showGweiTooltip ? valueCurr.multipliedBy(GWEI).toFormat() : null;
 
   return (
-    <Box as="span" className={ className } display="inline-flex" rowGap={ 3 } columnGap={ 1 }>
-      <Text display="inline-block">
-        { valueResult }{ currency ? ` ${ currency }` : '' }
-      </Text>
-      { usdResult && <Text as="span" variant="secondary" fontWeight={ 400 }>(${ usdResult })</Text> }
-    </Box>
+    <chakra.span className={ className } display="inline-flex" rowGap={ 3 } columnGap={ 1 }>
+      { startElement }
+      { showGweiTooltip ? (
+        <Tooltip content={ `${ valueInGwei } ${ currencyUnits.gwei }` }>
+          { valueElement }
+        </Tooltip>
+      ) : valueElement }
+      { usdResult && <chakra.span color="text.secondary" fontWeight={ 400 }>(${ usdResult })</chakra.span> }
+    </chakra.span>
   );
 };
 

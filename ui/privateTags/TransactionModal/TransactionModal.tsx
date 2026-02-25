@@ -9,40 +9,42 @@ import FormModal from 'ui/shared/FormModal';
 import TransactionForm from './TransactionForm';
 
 type Props = {
-  isOpen: boolean;
-  onClose: () => void;
-  data?: TransactionTag;
-}
+  open: boolean;
+  onOpenChange: ({ open }: { open: boolean }) => void;
+  onSuccess?: () => Promise<void>;
+  data?: Partial<TransactionTag>;
+};
 
-const AddressModal: React.FC<Props> = ({ isOpen, onClose, data }) => {
+const TransactionModal: React.FC<Props> = ({ open, onOpenChange, onSuccess, data }) => {
   const title = data ? 'Edit transaction tag' : 'New transaction tag';
   const text = !data ? 'Label any transaction with a private transaction tag (up to 35 chars) to customize your explorer experience.' : '';
 
   const [ isAlertVisible, setAlertVisible ] = useState(false);
 
   React.useEffect(() => {
-    isOpen && !data?.id && mixpanel.logEvent(
+    open && !data?.id && mixpanel.logEvent(
       mixpanel.EventTypes.PRIVATE_TAG,
       { Action: 'Form opened', 'Page type': PAGE_TYPE_DICT['/account/tag-address'], 'Tag type': 'Tx' },
     );
-  }, [ data?.id, isOpen ]);
+  }, [ data?.id, open ]);
 
   const handleSuccess = React.useCallback(async() => {
+    onSuccess?.();
     if (!data?.id) {
       mixpanel.logEvent(
         mixpanel.EventTypes.PRIVATE_TAG,
         { Action: 'Submit', 'Page type': PAGE_TYPE_DICT['/account/tag-address'], 'Tag type': 'Tx' },
       );
     }
-  }, [ data?.id ]);
+  }, [ data?.id, onSuccess ]);
 
   const renderForm = useCallback(() => {
-    return <TransactionForm data={ data } onClose={ onClose } onSuccess={ handleSuccess } setAlertVisible={ setAlertVisible }/>;
-  }, [ data, handleSuccess, onClose ]);
+    return <TransactionForm data={ data } onOpenChange={ onOpenChange } onSuccess={ handleSuccess } setAlertVisible={ setAlertVisible }/>;
+  }, [ data, handleSuccess, onOpenChange ]);
   return (
     <FormModal<TransactionTag>
-      isOpen={ isOpen }
-      onClose={ onClose }
+      open={ open }
+      onOpenChange={ onOpenChange }
       title={ title }
       text={ text }
       renderForm={ renderForm }
@@ -52,4 +54,4 @@ const AddressModal: React.FC<Props> = ({ isOpen, onClose, data }) => {
   );
 };
 
-export default AddressModal;
+export default TransactionModal;

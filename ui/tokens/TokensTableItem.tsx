@@ -1,23 +1,29 @@
-import { Box, Flex, Td, Tr, Skeleton } from '@chakra-ui/react';
+import { Flex } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
 import type { TokenInfo } from 'types/api/token';
 
+import config from 'configs/app';
+import getItemIndex from 'lib/getItemIndex';
+import { getTokenTypeName } from 'lib/token/tokenTypes';
+import { Skeleton } from 'toolkit/chakra/skeleton';
+import { TableCell, TableRow } from 'toolkit/chakra/table';
+import { Tag } from 'toolkit/chakra/tag';
 import AddressAddToWallet from 'ui/shared/address/AddressAddToWallet';
-import Tag from 'ui/shared/chakra/Tag';
 import type { EntityProps as AddressEntityProps } from 'ui/shared/entities/address/AddressEntity';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import TokenEntity from 'ui/shared/entities/token/TokenEntity';
+import TruncatedValue from 'ui/shared/TruncatedValue';
 
 type Props = {
   token: TokenInfo;
   index: number;
   page: number;
   isLoading?: boolean;
-}
+};
 
-const PAGE_SIZE = 50;
+const bridgedTokensFeature = config.features.bridgedTokens;
 
 const TokensTableItem = ({
   token,
@@ -27,85 +33,102 @@ const TokensTableItem = ({
 }: Props) => {
 
   const {
-    address,
+    address_hash: addressHash,
+    filecoin_robust_address: filecoinRobustAddress,
     exchange_rate: exchangeRate,
     type,
-    holders,
+    holders_count: holdersCount,
     circulating_market_cap: marketCap,
+    origin_chain_id: originalChainId,
   } = token;
 
+  const bridgedChainTag = bridgedTokensFeature.isEnabled ?
+    bridgedTokensFeature.chains.find(({ id }) => id === originalChainId)?.short_title :
+    undefined;
+
   const tokenAddress: AddressEntityProps['address'] = {
-    hash: address,
+    hash: addressHash,
+    filecoin: {
+      robust: filecoinRobustAddress,
+    },
     name: '',
-    implementation_name: null,
     is_contract: true,
     is_verified: false,
+    ens_domain_name: null,
+    implementations: null,
   };
 
   return (
-    <Tr>
-      <Td>
+    <TableRow className="group">
+      <TableCell>
         <Flex alignItems="flex-start">
           <Skeleton
-            isLoaded={ !isLoading }
-            fontSize="sm"
-            lineHeight="20px"
+            loading={ isLoading }
+            textStyle="sm"
             fontWeight={ 600 }
             mr={ 3 }
             minW="28px"
           >
-            { (page - 1) * PAGE_SIZE + index + 1 }
+            { getItemIndex(index, page) }
           </Skeleton>
-          <Box overflow="hidden">
+          <Flex overflow="hidden" flexDir="column" rowGap={ 2 }>
             <TokenEntity
               token={ token }
               isLoading={ isLoading }
               jointSymbol
               noCopy
-              fontSize="sm"
+              textStyle="sm"
               fontWeight="700"
             />
-            <Box ml={ 7 } mt={ 2 }>
-              <Flex>
-                <AddressEntity
-                  address={ tokenAddress }
-                  isLoading={ isLoading }
-                  noIcon
-                  truncation="constant"
-                  fontSize="sm"
-                  fontWeight={ 500 }
-                />
-                <AddressAddToWallet token={ token } ml={ 2 } isLoading={ isLoading }/>
-              </Flex>
-              <Box mt={ 3 } >
-                <Tag isLoading={ isLoading }>{ type }</Tag>
-              </Box>
-            </Box>
-          </Box>
+            <Flex columnGap={ 2 } py="5px" alignItems="center">
+              <AddressEntity
+                address={ tokenAddress }
+                isLoading={ isLoading }
+                noIcon
+                textStyle="sm"
+                fontWeight={ 500 }
+                linkVariant="secondary"
+              />
+              <AddressAddToWallet
+                token={ token }
+                isLoading={ isLoading }
+                iconSize={ 5 }
+                opacity={ 0 }
+                _groupHover={{ opacity: 1 }}
+              />
+            </Flex>
+            <Flex columnGap={ 1 }>
+              <Tag loading={ isLoading }>{ getTokenTypeName(type) }</Tag>
+              { bridgedChainTag && <Tag loading={ isLoading }>{ bridgedChainTag }</Tag> }
+            </Flex>
+          </Flex>
         </Flex>
-      </Td>
-      <Td isNumeric>
-        <Skeleton isLoaded={ !isLoading } fontSize="sm" lineHeight="24px" fontWeight={ 500 } display="inline-block">
-          { exchangeRate && `$${ Number(exchangeRate).toLocaleString(undefined, { minimumSignificantDigits: 4 }) }` }
-        </Skeleton>
-      </Td>
-      <Td isNumeric maxWidth="300px" width="300px">
-        <Skeleton isLoaded={ !isLoading } fontSize="sm" lineHeight="24px" fontWeight={ 500 } display="inline-block">
-          { marketCap && `$${ BigNumber(marketCap).toFormat() }` }
-        </Skeleton>
-      </Td>
-      <Td isNumeric>
+      </TableCell>
+      <TableCell isNumeric>
+        <TruncatedValue
+          value={ exchangeRate ? `$${ Number(exchangeRate).toLocaleString(undefined, { minimumSignificantDigits: 4 }) }` : '' }
+          isLoading={ isLoading }
+          maxW="100%"
+        />
+      </TableCell>
+      <TableCell isNumeric maxWidth="300px" width="300px">
+        <TruncatedValue
+          value={ marketCap ? `$${ BigNumber(marketCap).toFormat() }` : '' }
+          isLoading={ isLoading }
+          maxW="100%"
+        />
+      </TableCell>
+      <TableCell isNumeric>
         <Skeleton
-          isLoaded={ !isLoading }
-          fontSize="sm"
-          lineHeight="24px"
+          loading={ isLoading }
+          textStyle="sm"
           fontWeight={ 500 }
           display="inline-block"
         >
-          { Number(holders).toLocaleString() }
+          { Number(holdersCount).toLocaleString() }
         </Skeleton>
-      </Td>
-    </Tr>
+      </TableCell>
+    </TableRow>
   );
 };
 

@@ -1,22 +1,29 @@
-import type { SmartContractVerificationMethod } from 'types/api/contract';
-import type { Option } from 'ui/shared/FancySelect/types';
+import type { SmartContractLicenseType } from 'types/api/contract';
+import type { SmartContractVerificationMethod } from 'types/client/contract';
+
+import type { SelectOption } from 'toolkit/chakra/select';
 
 export interface ContractLibrary {
   name: string;
   address: string;
 }
 
-interface MethodOption {
+export interface LicenseOption {
   label: string;
-  value: SmartContractVerificationMethod;
+  value: SmartContractLicenseType;
 }
 
-export interface FormFieldsFlattenSourceCode {
-  method: MethodOption;
+interface FormFieldsBase {
+  address: string;
+  method: Array<SmartContractVerificationMethod>;
+  license_type: Array<SmartContractLicenseType>;
+}
+
+export interface FormFieldsFlattenSourceCode extends FormFieldsBase {
   is_yul: boolean;
   name: string | undefined;
-  compiler: Option | null;
-  evm_version: Option | null;
+  compiler: Array<string>;
+  evm_version: Array<string>;
   is_optimization_enabled: boolean;
   optimization_runs: string;
   code: string;
@@ -25,53 +32,63 @@ export interface FormFieldsFlattenSourceCode {
   libraries: Array<ContractLibrary>;
 }
 
-export interface FormFieldsStandardInput {
-  method: MethodOption;
+export interface FormFieldsStandardInput extends FormFieldsBase {
   name: string;
-  compiler: Option | null;
+  compiler: Array<string>;
   sources: Array<File>;
   autodetect_constructor_args: boolean;
   constructor_args: string;
 }
 
-export interface FormFieldsSourcify {
-  method: MethodOption;
+export interface FormFieldsStandardInputZk extends FormFieldsBase {
+  name: string;
+  compiler: Array<string>;
+  zk_compiler: Array<string>;
   sources: Array<File>;
-  contract_index?: Option;
+  autodetect_constructor_args: boolean;
+  constructor_args: string;
 }
 
-export interface FormFieldsMultiPartFile {
-  method: MethodOption;
-  compiler: Option | null;
-  evm_version: Option | null;
+export interface FormFieldsSourcify extends FormFieldsBase {
+  sources: Array<File>;
+  contract_index?: SelectOption;
+}
+
+export interface FormFieldsMultiPartFile extends FormFieldsBase {
+  compiler: Array<string>;
+  evm_version: Array<string>;
   is_optimization_enabled: boolean;
   optimization_runs: string;
   sources: Array<File>;
   libraries: Array<ContractLibrary>;
 }
 
-export interface FormFieldsVyperContract {
-  method: MethodOption;
+export interface FormFieldsVyperContract extends FormFieldsBase {
   name: string;
-  evm_version: Option | null;
-  compiler: Option | null;
+  evm_version: Array<string>;
+  compiler: Array<string>;
   code: string;
   constructor_args: string | undefined;
 }
 
-export interface FormFieldsVyperMultiPartFile {
-  method: MethodOption;
-  compiler: Option | null;
-  evm_version: Option | null;
+export interface FormFieldsVyperMultiPartFile extends FormFieldsBase {
+  compiler: Array<string>;
+  evm_version: Array<string>;
   sources: Array<File>;
   interfaces: Array<File>;
 }
 
-export interface FormFieldsVyperStandardInput {
-  method: MethodOption;
-  compiler: Option | null;
+export interface FormFieldsVyperStandardInput extends FormFieldsBase {
+  compiler: Array<string>;
   sources: Array<File>;
 }
 
-export type FormFields = FormFieldsFlattenSourceCode | FormFieldsStandardInput | FormFieldsSourcify |
-FormFieldsMultiPartFile | FormFieldsVyperContract | FormFieldsVyperMultiPartFile | FormFieldsVyperStandardInput;
+export interface FormFieldsStylusGitHubRepo extends FormFieldsBase {
+  compiler: Array<string>;
+  repository_url: string;
+  commit_hash: string;
+  path_prefix: string;
+}
+
+export type FormFields = FormFieldsFlattenSourceCode | FormFieldsStandardInput | FormFieldsStandardInputZk | FormFieldsSourcify |
+FormFieldsMultiPartFile | FormFieldsVyperContract | FormFieldsVyperMultiPartFile | FormFieldsVyperStandardInput | FormFieldsStylusGitHubRepo;
