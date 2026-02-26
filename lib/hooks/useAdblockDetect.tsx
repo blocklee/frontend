@@ -18,6 +18,7 @@ const TEST_URLS: Record<AdBannerProviders, string> = {
   hype: 'https://api.hypelab.com/v1/scripts/hp-sdk.js',
   // I don't have an url for getit to test
   // getit: DEFAULT_URL,
+  custom: DEFAULT_URL,
   none: DEFAULT_URL,
 };
 
