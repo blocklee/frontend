@@ -4,7 +4,8 @@ import * as regexp from 'lib/regexp';
 export const replaceQuotes = (value: string | undefined) => value?.replaceAll('\'', '"');
 
 export const getEnvValue = (envName: string) => {
-  const envs = isBrowser() ? window.__envs : process.env;
+  // eslint-disable-next-line no-restricted-properties
+  const envs = (isBrowser() ? window.__envs : process.env) ?? {};
 
   if (isBrowser() && envs.NEXT_PUBLIC_APP_INSTANCE === 'pw') {
     const storageValue = localStorage.getItem(envName);
@@ -40,8 +41,24 @@ export const getExternalAssetFilePath = (envName: string) => {
 };
 
 export const buildExternalAssetFilePath = (name: string, value: string) => {
-  const fileName = name.replace(/^NEXT_PUBLIC_/, '').replace(/_URL$/, '').toLowerCase();
-  const fileExtension = value.match(regexp.FILE_EXTENSION)?.[1];
+  try {
+    const fileName = name.replace(/^NEXT_PUBLIC_/, '').replace(/_URL$/, '').toLowerCase();
 
-  return `/assets/${ fileName }.${ fileExtension }`;
+    const fileExtension = getAssetFileExtension(value);
+    if (!fileExtension) {
+      throw new Error('Cannot get file path');
+    }
+    return `/assets/configs/${ fileName }.${ fileExtension }`;
+  } catch (error) {
+    return;
+  }
 };
+
+function getAssetFileExtension(value: string) {
+  try {
+    const url = new URL(value);
+    return url.pathname.match(regexp.FILE_EXTENSION)?.[1];
+  } catch (error) {
+    return parseEnvJson(value) ? 'json' : undefined;
+  }
+}

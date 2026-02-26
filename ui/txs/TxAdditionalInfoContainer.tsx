@@ -1,7 +1,8 @@
-import { Box, Divider, Skeleton } from '@chakra-ui/react';
+import { Box, Divider } from '@chakra-ui/react';
 import React from 'react';
 
 import useApiQuery from 'lib/api/useApiQuery';
+import Skeleton from 'ui/shared/chakra/Skeleton';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 
 import TxAdditionalInfoContent from './TxAdditionalInfoContent';
@@ -11,14 +12,14 @@ interface Props {
 }
 
 const TxAdditionalInfoContainer = ({ hash }: Props) => {
-  const { data, isError, isLoading } = useApiQuery('tx', {
+  const { data, isError, isPending } = useApiQuery('tx', {
     pathParams: { hash },
     queryOptions: {
       refetchOnMount: false,
     },
   });
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <Box>
         <Skeleton w="130px" h="24px" borderRadius="full" mb={ 6 }/>

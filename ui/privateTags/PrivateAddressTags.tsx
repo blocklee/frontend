@@ -1,13 +1,16 @@
-import { Box, Button, Skeleton, useDisclosure } from '@chakra-ui/react';
+import { Box, Button, useDisclosure } from '@chakra-ui/react';
 import React, { useCallback, useState } from 'react';
 
 import type { AddressTag } from 'types/api/account';
 
-import useApiQuery from 'lib/api/useApiQuery';
 import { PAGE_TYPE_DICT } from 'lib/mixpanel/getPageType';
 import { PRIVATE_TAG_ADDRESS } from 'stubs/account';
 import AccountPageDescription from 'ui/shared/AccountPageDescription';
-import DataFetchAlert from 'ui/shared/DataFetchAlert';
+import ActionBar, { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
+import Skeleton from 'ui/shared/chakra/Skeleton';
+import DataListDisplay from 'ui/shared/DataListDisplay';
+import Pagination from 'ui/shared/pagination/Pagination';
+import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 
 import AddressModal from './AddressModal/AddressModal';
 import AddressTagListItem from './AddressTagTable/AddressTagListItem';
@@ -15,10 +18,11 @@ import AddressTagTable from './AddressTagTable/AddressTagTable';
 import DeletePrivateTagModal from './DeletePrivateTagModal';
 
 const PrivateAddressTags = () => {
-  const { data: addressTagsData, isError, isPlaceholderData, refetch } = useApiQuery('private_tags_address', {
-    queryOptions: {
+  const { data: addressTagsData, isError, isPlaceholderData, refetch, pagination } = useQueryWithPages({
+    resourceName: 'private_tags_address',
+    options: {
       refetchOnMount: false,
-      placeholderData: Array(3).fill(PRIVATE_TAG_ADDRESS),
+      placeholderData: { items: Array(5).fill(PRIVATE_TAG_ADDRESS), next_page_params: null },
     },
   });
 
@@ -52,17 +56,13 @@ const PrivateAddressTags = () => {
     deleteModalProps.onClose();
   }, [ deleteModalProps ]);
 
-  if (isError) {
-    return <DataFetchAlert/>;
-  }
-
   const list = (
     <>
       <Box display={{ base: 'block', lg: 'none' }}>
-        { addressTagsData?.map((item: AddressTag, index: number) => (
+        { addressTagsData?.items.map((item: AddressTag, index: number) => (
           <AddressTagListItem
             item={ item }
-            key={ item.id + (isPlaceholderData ? index : '') }
+            key={ item.id + (isPlaceholderData ? String(index) : '') }
             onDeleteClick={ onDeleteClick }
             onEditClick={ onEditClick }
             isLoading={ isPlaceholderData }
@@ -72,13 +72,20 @@ const PrivateAddressTags = () => {
       <Box display={{ base: 'none', lg: 'block' }}>
         <AddressTagTable
           isLoading={ isPlaceholderData }
-          data={ addressTagsData }
+          data={ addressTagsData?.items }
           onDeleteClick={ onDeleteClick }
           onEditClick={ onEditClick }
+          top={ pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }
         />
       </Box>
     </>
   );
+
+  const actionBar = pagination.isVisible ? (
+    <ActionBar mt={ -6 }>
+      <Pagination ml="auto" { ...pagination }/>
+    </ActionBar>
+  ) : null;
 
   return (
     <>
@@ -86,13 +93,19 @@ const PrivateAddressTags = () => {
         Use private address tags to track any addresses of interest.
         Private tags are saved in your account and are only visible when you are logged in.
       </AccountPageDescription>
-      { Boolean(addressTagsData?.length) && list }
+      <DataListDisplay
+        isError={ isError }
+        items={ addressTagsData?.items }
+        emptyText=""
+        content={ list }
+        actionBar={ actionBar }
+      />
       <Skeleton mt={ 8 } isLoaded={ !isPlaceholderData } display="inline-block">
         <Button
           size="lg"
           onClick={ addressModalProps.onOpen }
         >
-            Add address tag
+          Add address tag
         </Button>
       </Skeleton>
       <AddressModal

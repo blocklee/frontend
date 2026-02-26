@@ -9,8 +9,19 @@ import { KEY_WORDS } from '../utils';
 const MAIN_DOMAINS = [
   `*.${ config.app.host }`,
   config.app.host,
-  getFeaturePayload(config.features.sol2uml)?.api.endpoint,
 ].filter(Boolean);
+
+const externalFontsDomains = (() => {
+  try {
+    return [
+      config.UI.fonts.heading?.url,
+      config.UI.fonts.body?.url,
+    ]
+      .filter(Boolean)
+      .map((urlString) => new URL(urlString))
+      .map((url) => url.hostname);
+  } catch (error) {}
+})();
 
 export function app(): CspDev.DirectiveDescriptor {
   return {
@@ -35,13 +46,20 @@ export function app(): CspDev.DirectiveDescriptor {
       getFeaturePayload(config.features.sol2uml)?.api.endpoint,
       getFeaturePayload(config.features.verifiedTokens)?.api.endpoint,
       getFeaturePayload(config.features.addressVerification)?.api.endpoint,
+      getFeaturePayload(config.features.nameService)?.api.endpoint,
+      getFeaturePayload(config.features.addressMetadata)?.api.endpoint,
+      getFeaturePayload(config.features.rewards)?.api.endpoint,
 
       // chain RPC server
-      config.chain.rpcUrl,
+      ...config.chain.rpcUrls,
+      ...(getFeaturePayload(config.features.rollup)?.parentChain?.rpcUrls ?? []),
       'https://infragrid.v.network', // RPC providers
 
       // github (spec for api-docs page)
       'raw.githubusercontent.com',
+
+      // github api (used for Stylus contract verification)
+      'api.github.com',
     ].filter(Boolean),
 
     'script-src': [
@@ -52,8 +70,12 @@ export function app(): CspDev.DirectiveDescriptor {
       // https://github.com/vercel/next.js/issues/14221#issuecomment-657258278
       config.app.isDev ? KEY_WORDS.UNSAFE_EVAL : '',
 
-      // hash of ColorModeScript
+      // hash of ColorModeScript: system + dark
       '\'sha256-e7MRMmTzLsLQvIy1iizO1lXf7VWYoQ6ysj5fuUzvRwE=\'',
+      '\'sha256-9A7qFFHmxdWjZMQmfzYD2XWaNHLu1ZmQB0Ds4Go764k=\'',
+
+      // CapybaraRunner
+      '\'sha256-5+YTmTcBwCYdJ8Jetbr6kyjGp0Ry/H7ptpoun6CrSwQ=\'',
     ],
 
     'style-src': [
@@ -89,11 +111,14 @@ export function app(): CspDev.DirectiveDescriptor {
     ],
 
     'media-src': [
+      KEY_WORDS.BLOB,
       '*', // see comment for img-src directive
     ],
 
     'font-src': [
       KEY_WORDS.DATA,
+      ...MAIN_DOMAINS,
+      ...(externalFontsDomains || []),
     ],
 
     'object-src': [
@@ -109,17 +134,11 @@ export function app(): CspDev.DirectiveDescriptor {
       '*',
     ],
 
-    ...((() => {
-      const sentryFeature = config.features.sentry;
-      if (!sentryFeature.isEnabled || !sentryFeature.cspReportUrl || config.app.isDev) {
-        return {};
-      }
+    'frame-ancestors': [
+      KEY_WORDS.SELF,
 
-      return {
-        'report-uri': [
-          sentryFeature.cspReportUrl,
-        ],
-      };
-    })()),
+      // allow remix.ethereum.org to embed our contract page in iframe
+      'remix.ethereum.org',
+    ],
   };
 }

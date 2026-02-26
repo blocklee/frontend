@@ -1,6 +1,6 @@
 import type {
   ButtonProps } from '@chakra-ui/react';
-import { Popover,
+import {
   PopoverTrigger,
   PopoverContent,
   PopoverBody,
@@ -12,10 +12,10 @@ import React from 'react';
 
 import type { MenuButton, TabItem } from './types';
 
+import Popover from 'ui/shared/chakra/Popover';
+
 import TabCounter from './TabCounter';
 import { menuButton } from './utils';
-
-const BUTTON_CLASSNAME = 'button-item';
 
 interface Props {
   tabs: Array<TabItem | MenuButton>;
@@ -43,6 +43,8 @@ const TabsMenu = ({ tabs, tabsCut, isActive, styles, onItemClick, buttonRef, act
     <Popover isLazy placement="bottom-end" key="more" isOpen={ isOpen } onClose={ onClose } onOpen={ onOpen } closeDelay={ 0 }>
       <PopoverTrigger>
         <Button
+          as="div"
+          role="button"
           variant="ghost"
           isActive={ isOpen || isActive }
           ref={ buttonRef }
@@ -56,16 +58,20 @@ const TabsMenu = ({ tabs, tabsCut, isActive, styles, onItemClick, buttonRef, act
         <PopoverBody display="flex" flexDir="column">
           { tabs.slice(tabsCut).map((tab, index) => (
             <Button
-              key={ tab.id }
+              key={ tab.id?.toString() }
               variant="ghost"
               onClick={ handleItemClick }
               isActive={ activeTab ? activeTab.id === tab.id : false }
               justifyContent="left"
               data-index={ index }
-              className={ BUTTON_CLASSNAME }
+              sx={{
+                '&:hover span': {
+                  color: 'inherit',
+                },
+              }}
             >
               { typeof tab.title === 'function' ? tab.title() : tab.title }
-              <TabCounter count={ tab.count } parentClassName={ BUTTON_CLASSNAME }/>
+              <TabCounter count={ tab.count }/>
             </Button>
           )) }
         </PopoverBody>

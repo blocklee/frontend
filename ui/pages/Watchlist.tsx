@@ -1,28 +1,36 @@
-import { Box, Button, Skeleton, useDisclosure } from '@chakra-ui/react';
+import { Box, Button, useDisclosure } from '@chakra-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
 
-import type { WatchlistAddress } from 'types/api/account';
+import type { WatchlistAddress, WatchlistResponse } from 'types/api/account';
 
 import { resourceKey } from 'lib/api/resources';
-import useApiQuery from 'lib/api/useApiQuery';
-import useRedirectForInvalidAuthToken from 'lib/hooks/useRedirectForInvalidAuthToken';
+import { getResourceKey } from 'lib/api/useApiQuery';
 import { WATCH_LIST_ITEM_WITH_TOKEN_INFO } from 'stubs/account';
 import AccountPageDescription from 'ui/shared/AccountPageDescription';
-import DataFetchAlert from 'ui/shared/DataFetchAlert';
+import ActionBar, { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
+import Skeleton from 'ui/shared/chakra/Skeleton';
+import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
+import Pagination from 'ui/shared/pagination/Pagination';
+import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
+import useProfileQuery from 'ui/snippets/auth/useProfileQuery';
+import useRedirectForInvalidAuthToken from 'ui/snippets/auth/useRedirectForInvalidAuthToken';
 import AddressModal from 'ui/watchlist/AddressModal/AddressModal';
 import DeleteAddressModal from 'ui/watchlist/DeleteAddressModal';
 import WatchListItem from 'ui/watchlist/WatchlistTable/WatchListItem';
 import WatchlistTable from 'ui/watchlist/WatchlistTable/WatchlistTable';
 
 const WatchList: React.FC = () => {
-  const { data, isPlaceholderData, isError } = useApiQuery('watchlist', {
-    queryOptions: {
-      placeholderData: Array(3).fill(WATCH_LIST_ITEM_WITH_TOKEN_INFO),
+
+  const { data, isPlaceholderData, isError, pagination } = useQueryWithPages({
+    resourceName: 'watchlist',
+    options: {
+      placeholderData: { items: Array(5).fill(WATCH_LIST_ITEM_WITH_TOKEN_INFO), next_page_params: null },
     },
   });
   const queryClient = useQueryClient();
+  const profileQuery = useProfileQuery();
 
   const addressModalProps = useDisclosure();
   const deleteModalProps = useDisclosure();
@@ -42,7 +50,7 @@ const WatchList: React.FC = () => {
   }, [ addressModalProps ]);
 
   const onAddOrEditSuccess = useCallback(async() => {
-    await queryClient.refetchQueries([ resourceKey('watchlist') ]);
+    await queryClient.refetchQueries({ queryKey: [ resourceKey('watchlist') ] });
     setAddressModalData(undefined);
     addressModalProps.onClose();
   }, [ addressModalProps, queryClient ]);
@@ -58,9 +66,11 @@ const WatchList: React.FC = () => {
   }, [ deleteModalProps ]);
 
   const onDeleteSuccess = useCallback(async() => {
-    queryClient.setQueryData([ resourceKey('watchlist') ], (prevData: Array<WatchlistAddress> | undefined) => {
-      return prevData?.filter((item) => item.id !== deleteModalData?.id);
-    });
+    queryClient.setQueryData(getResourceKey('watchlist'), (prevData: WatchlistResponse | undefined) => {
+      const newItems = prevData?.items.filter((item: WatchlistAddress) => item.id !== deleteModalData?.id);
+      return { ...prevData, items: newItems };
+    },
+    );
   }, [ deleteModalData?.id, queryClient ]);
 
   const description = (
@@ -69,30 +79,35 @@ const WatchList: React.FC = () => {
     </AccountPageDescription>
   );
 
-  if (isError) {
-    return <DataFetchAlert/>;
-  }
-
   const content = (() => {
+    const actionBar = pagination.isVisible ? (
+      <ActionBar mt={ -6 }>
+        <Pagination ml="auto" { ...pagination }/>
+      </ActionBar>
+    ) : null;
+
     const list = (
       <>
         <Box display={{ base: 'block', lg: 'none' }}>
-          { data?.map((item, index) => (
+          { data?.items.map((item, index) => (
             <WatchListItem
               key={ item.address_hash + (isPlaceholderData ? index : '') }
               item={ item }
               isLoading={ isPlaceholderData }
               onDeleteClick={ onDeleteClick }
               onEditClick={ onEditClick }
+              hasEmail={ Boolean(profileQuery.data?.email) }
             />
           )) }
         </Box>
         <Box display={{ base: 'none', lg: 'block' }}>
           <WatchlistTable
-            data={ data }
+            data={ data?.items }
             isLoading={ isPlaceholderData }
             onDeleteClick={ onDeleteClick }
             onEditClick={ onEditClick }
+            top={ pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }
+            hasEmail={ Boolean(profileQuery.data?.email) }
           />
         </Box>
       </>
@@ -101,7 +116,13 @@ const WatchList: React.FC = () => {
     return (
       <>
         { description }
-        { Boolean(data?.length) && list }
+        <DataListDisplay
+          isError={ isError }
+          items={ data?.items }
+          emptyText=""
+          content={ list }
+          actionBar={ actionBar }
+        />
         <Skeleton mt={ 8 } isLoaded={ !isPlaceholderData } display="inline-block">
           <Button
             size="lg"

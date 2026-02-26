@@ -1,12 +1,15 @@
-import { Box, Button, Skeleton, useDisclosure } from '@chakra-ui/react';
+import { Box, Button, useDisclosure } from '@chakra-ui/react';
 import React, { useCallback, useState } from 'react';
 
 import type { TransactionTag } from 'types/api/account';
 
-import useApiQuery from 'lib/api/useApiQuery';
 import { PRIVATE_TAG_TX } from 'stubs/account';
 import AccountPageDescription from 'ui/shared/AccountPageDescription';
-import DataFetchAlert from 'ui/shared/DataFetchAlert';
+import ActionBar, { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
+import Skeleton from 'ui/shared/chakra/Skeleton';
+import DataListDisplay from 'ui/shared/DataListDisplay';
+import Pagination from 'ui/shared/pagination/Pagination';
+import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 
 import DeletePrivateTagModal from './DeletePrivateTagModal';
 import TransactionModal from './TransactionModal/TransactionModal';
@@ -14,10 +17,11 @@ import TransactionTagListItem from './TransactionTagTable/TransactionTagListItem
 import TransactionTagTable from './TransactionTagTable/TransactionTagTable';
 
 const PrivateTransactionTags = () => {
-  const { data: transactionTagsData, isPlaceholderData, isError } = useApiQuery('private_tags_tx', {
-    queryOptions: {
+  const { data: transactionTagsData, isPlaceholderData, isError, pagination } = useQueryWithPages({
+    resourceName: 'private_tags_tx',
+    options: {
       refetchOnMount: false,
-      placeholderData: Array(3).fill(PRIVATE_TAG_TX),
+      placeholderData: { items: Array(3).fill(PRIVATE_TAG_TX), next_page_params: null },
     },
   });
 
@@ -49,21 +53,17 @@ const PrivateTransactionTags = () => {
 
   const description = (
     <AccountPageDescription>
-        Use private transaction tags to label any transactions of interest.
-        Private tags are saved in your account and are only visible when you are logged in.
+      Use private transaction tags to label any transactions of interest.
+      Private tags are saved in your account and are only visible when you are logged in.
     </AccountPageDescription>
   );
-
-  if (isError) {
-    return <DataFetchAlert/>;
-  }
 
   const list = (
     <>
       <Box display={{ base: 'block', lg: 'none' }}>
-        { transactionTagsData?.map((item, index) => (
+        { transactionTagsData?.items.map((item, index) => (
           <TransactionTagListItem
-            key={ item.id + (isPlaceholderData ? index : '') }
+            key={ item.id + (isPlaceholderData ? String(index) : '') }
             item={ item }
             isLoading={ isPlaceholderData }
             onDeleteClick={ onDeleteClick }
@@ -73,19 +73,31 @@ const PrivateTransactionTags = () => {
       </Box>
       <Box display={{ base: 'none', lg: 'block' }}>
         <TransactionTagTable
-          data={ transactionTagsData }
+          data={ transactionTagsData?.items }
           isLoading={ isPlaceholderData }
           onDeleteClick={ onDeleteClick }
           onEditClick={ onEditClick }
+          top={ pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }
         />
       </Box>
     </>
   );
+  const actionBar = pagination.isVisible ? (
+    <ActionBar mt={ -6 }>
+      <Pagination ml="auto" { ...pagination }/>
+    </ActionBar>
+  ) : null;
 
   return (
     <>
       { description }
-      { Boolean(transactionTagsData?.length) && list }
+      <DataListDisplay
+        isError={ isError }
+        items={ transactionTagsData?.items }
+        emptyText=""
+        content={ list }
+        actionBar={ actionBar }
+      />
       <Skeleton mt={ 8 } isLoaded={ !isPlaceholderData } display="inline-block">
         <Button
           size="lg"

@@ -1,19 +1,20 @@
-import { IconButton, Icon, Popover, PopoverTrigger, PopoverContent, PopoverBody, Flex, Text, useColorModeValue } from '@chakra-ui/react';
+import { IconButton, PopoverTrigger, PopoverContent, PopoverBody, Flex, Text, useColorModeValue } from '@chakra-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 
 import type { SocketMessage } from 'lib/socket/types';
 import type { IndexingStatus } from 'types/api/indexingStatus';
 
-import infoIcon from 'icons/info.svg';
 import useApiQuery, { getResourceKey } from 'lib/api/useApiQuery';
 import { apos, nbsp, ndash } from 'lib/html-entities';
 import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
+import Popover from 'ui/shared/chakra/Popover';
+import IconSvg from 'ui/shared/IconSvg';
 
 const IntTxsIndexingStatus = () => {
 
-  const { data, isError, isLoading } = useApiQuery('homepage_indexing_status');
+  const { data, isError, isPending } = useApiQuery('homepage_indexing_status');
 
   const bgColor = useColorModeValue('blackAlpha.100', 'whiteAlpha.100');
   const hintTextcolor = useColorModeValue('black', 'white');
@@ -38,11 +39,11 @@ const IntTxsIndexingStatus = () => {
 
   useSocketMessage({
     channel: internalTxsIndexingChannel,
-    event: 'internal_txs_index_status',
+    event: 'index_status',
     handler: handleInternalTxsIndexStatus,
   });
 
-  if (isError || isLoading) {
+  if (isError || isPending) {
     return null;
   }
 
@@ -72,7 +73,7 @@ const IntTxsIndexingStatus = () => {
       <IconButton
         colorScheme="none"
         aria-label="hint"
-        icon={ <Icon as={ infoIcon } boxSize={ 5 }/> }
+        icon={ <IconSvg name="info" boxSize={ 5 }/> }
         boxSize={ 6 }
         variant="simple"
       />

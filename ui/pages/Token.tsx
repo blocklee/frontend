@@ -1,4 +1,4 @@
-import { Box, Icon, Tooltip } from '@chakra-ui/react';
+import { Box } from '@chakra-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
@@ -9,37 +9,40 @@ import type { PaginationParams } from 'ui/shared/pagination/types';
 import type { RoutedTab } from 'ui/shared/Tabs/types';
 
 import config from 'configs/app';
-import iconSuccess from 'icons/status/success.svg';
-import iconVerifiedToken from 'icons/verified_token.svg';
 import useApiQuery, { getResourceKey } from 'lib/api/useApiQuery';
-import { useAppContext } from 'lib/contexts/app';
-import useContractTabs from 'lib/hooks/useContractTabs';
 import useIsMobile from 'lib/hooks/useIsMobile';
 import * as metadata from 'lib/metadata';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
+import { NFT_TOKEN_TYPE_IDS } from 'lib/token/tokenTypes';
 import * as addressStubs from 'stubs/address';
 import * as tokenStubs from 'stubs/token';
+import { getTokenHoldersStub } from 'stubs/token';
 import { generateListStub } from 'stubs/utils';
 import AddressContract from 'ui/address/AddressContract';
+import AddressCsvExportLink from 'ui/address/AddressCsvExportLink';
+import useContractTabs from 'ui/address/contract/useContractTabs';
+import { CONTRACT_TAB_IDS } from 'ui/address/contract/utils';
 import TextAd from 'ui/shared/ad/TextAd';
-import * as TokenEntity from 'ui/shared/entities/token/TokenEntity';
-import EntityTags from 'ui/shared/EntityTags';
-import NetworkExplorers from 'ui/shared/NetworkExplorers';
-import PageTitle from 'ui/shared/Page/PageTitle';
+import IconSvg from 'ui/shared/IconSvg';
 import Pagination from 'ui/shared/pagination/Pagination';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import RoutedTabs from 'ui/shared/Tabs/RoutedTabs';
-import TabsSkeleton from 'ui/shared/Tabs/TabsSkeleton';
-import TokenContractInfo from 'ui/token/TokenContractInfo';
 import TokenDetails from 'ui/token/TokenDetails';
 import TokenHolders from 'ui/token/TokenHolders/TokenHolders';
 import TokenInventory from 'ui/token/TokenInventory';
+import TokenPageTitle from 'ui/token/TokenPageTitle';
 import TokenTransfer from 'ui/token/TokenTransfer/TokenTransfer';
-import TokenVerifiedInfo from 'ui/token/TokenVerifiedInfo';
+import useTokenQuery from 'ui/token/useTokenQuery';
 
 export type TokenTabs = 'token_transfers' | 'holders' | 'inventory';
+
+const TABS_RIGHT_SLOT_PROPS = {
+  display: 'flex',
+  alignItems: 'center',
+  columnGap: 4,
+};
 
 const TokenPageContent = () => {
   const [ isQueryEnabled, setIsQueryEnabled ] = React.useState(false);
@@ -47,24 +50,17 @@ const TokenPageContent = () => {
   const router = useRouter();
   const isMobile = useIsMobile();
 
-  const appProps = useAppContext();
-
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const hashString = getQueryParamString(router.query.hash);
   const tab = getQueryParamString(router.query.tab);
+  const ownerFilter = getQueryParamString(router.query.holder_address_hash) || undefined;
 
   const queryClient = useQueryClient();
 
-  const tokenQuery = useApiQuery('token', {
-    pathParams: { hash: hashString },
-    queryOptions: {
-      enabled: Boolean(router.query.hash),
-      placeholderData: tokenStubs.TOKEN_INFO_ERC_20,
-    },
-  });
+  const tokenQuery = useTokenQuery(hashString);
 
-  const contractQuery = useApiQuery('address', {
+  const addressQuery = useApiQuery('address', {
     pathParams: { hash: hashString },
     queryOptions: {
       enabled: isQueryEnabled && Boolean(router.query.hash),
@@ -109,13 +105,13 @@ const TokenPageContent = () => {
   });
 
   useEffect(() => {
-    if (tokenQuery.data && !tokenQuery.isPlaceholderData) {
-      metadata.update({ pathname: '/token/[hash]', query: { hash: tokenQuery.data.address } }, { symbol: tokenQuery.data.symbol ?? '' });
+    if (tokenQuery.data && !tokenQuery.isPlaceholderData && !config.meta.seo.enhancedDataEnabled) {
+      metadata.update({ pathname: '/token/[hash]', query: { hash: tokenQuery.data.address } }, tokenQuery.data);
     }
   }, [ tokenQuery.data, tokenQuery.isPlaceholderData ]);
 
-  const hasData = (tokenQuery.data && !tokenQuery.isPlaceholderData) && (contractQuery.data && !contractQuery.isPlaceholderData);
-  const hasInventoryTab = tokenQuery.data?.type === 'ERC-1155' || tokenQuery.data?.type === 'ERC-721';
+  const hasData = (tokenQuery.data && !tokenQuery.isPlaceholderData) && (addressQuery.data && !addressQuery.isPlaceholderData);
+  const hasInventoryTab = tokenQuery.data?.type && NFT_TOKEN_TYPE_IDS.includes(tokenQuery.data.type);
 
   const transfersQuery = useQueryWithPages({
     resourceName: 'token_transfers',
@@ -137,6 +133,7 @@ const TokenPageContent = () => {
   const inventoryQuery = useQueryWithPages({
     resourceName: 'token_inventory',
     pathParams: { hash: hashString },
+    filters: ownerFilter ? { holder_address_hash: ownerFilter } : {},
     scrollRef,
     options: {
       enabled: Boolean(
@@ -147,7 +144,7 @@ const TokenPageContent = () => {
           tab === 'inventory'
         ),
       ),
-      placeholderData: generateListStub<'token_inventory'>(tokenStubs.TOKEN_INSTANCE, 50, { next_page_params: null }),
+      placeholderData: generateListStub<'token_inventory'>(tokenStubs.TOKEN_INSTANCE, 50, { next_page_params: { unique_token: 1 } }),
     },
   });
 
@@ -157,40 +154,45 @@ const TokenPageContent = () => {
     scrollRef,
     options: {
       enabled: Boolean(hashString && tab === 'holders' && hasData),
-      placeholderData: generateListStub<'token_holders'>(
-        tokenQuery.data?.type === 'ERC-1155' ? tokenStubs.TOKEN_HOLDER_ERC_1155 : tokenStubs.TOKEN_HOLDER_ERC_20, 50, { next_page_params: null }),
+      placeholderData: getTokenHoldersStub(tokenQuery.data?.type, null),
     },
   });
 
-  const verifiedInfoQuery = useApiQuery('token_verified_info', {
-    pathParams: { hash: hashString, chainId: config.chain.id },
-    queryOptions: { enabled: Boolean(tokenQuery.data) && config.features.verifiedTokens.isEnabled },
-  });
-
-  const contractTabs = useContractTabs(contractQuery.data);
+  const isLoading = tokenQuery.isPlaceholderData || addressQuery.isPlaceholderData;
+  const contractTabs = useContractTabs(addressQuery.data, addressQuery.isPlaceholderData);
 
   const tabs: Array<RoutedTab> = [
-    (tokenQuery.data?.type === 'ERC-1155' || tokenQuery.data?.type === 'ERC-721') ?
-      { id: 'inventory', title: 'Inventory', component: <TokenInventory inventoryQuery={ inventoryQuery }/> } :
-      undefined,
-    { id: 'token_transfers', title: 'Token transfers', component: <TokenTransfer transfersQuery={ transfersQuery } token={ tokenQuery.data }/> },
-    { id: 'holders', title: 'Holders', component: <TokenHolders token={ tokenQuery.data } holdersQuery={ holdersQuery }/> },
-    contractQuery.data?.is_contract ? {
+    hasInventoryTab ? {
+      id: 'inventory',
+      title: 'Inventory',
+      component: <TokenInventory inventoryQuery={ inventoryQuery } tokenQuery={ tokenQuery } ownerFilter={ ownerFilter } shouldRender={ !isLoading }/>,
+    } : undefined,
+    {
+      id: 'token_transfers',
+      title: 'Token transfers',
+      component: <TokenTransfer transfersQuery={ transfersQuery } tokenQuery={ tokenQuery } shouldRender={ !isLoading }/>,
+    },
+    {
+      id: 'holders',
+      title: 'Holders',
+      component: <TokenHolders token={ tokenQuery.data } holdersQuery={ holdersQuery } shouldRender={ !isLoading }/>,
+    },
+    addressQuery.data?.is_contract ? {
       id: 'contract',
       title: () => {
-        if (contractQuery.data?.is_verified) {
+        if (addressQuery.data?.is_verified) {
           return (
             <>
               <span>Contract</span>
-              <Icon as={ iconSuccess } boxSize="14px" color="green.500" ml={ 1 }/>
+              <IconSvg name="status/success" boxSize="14px" color="green.500" ml={ 1 }/>
             </>
           );
         }
 
         return 'Contract';
       },
-      component: <AddressContract tabs={ contractTabs }/>,
-      subTabs: contractTabs.map(tab => tab.id),
+      component: <AddressContract tabs={ contractTabs.tabs } isLoading={ contractTabs.isLoading } shouldRender={ !isLoading }/>,
+      subTabs: CONTRACT_TAB_IDS,
     } : undefined,
   ].filter(Boolean);
 
@@ -206,11 +208,9 @@ const TokenPageContent = () => {
   }
 
   // default tab for nfts is token inventory
-  if (((tokenQuery.data?.type === 'ERC-1155' || tokenQuery.data?.type === 'ERC-721') && !tab) || tab === 'inventory') {
+  if ((hasInventoryTab && !tab) || tab === 'inventory') {
     pagination = inventoryQuery.pagination;
   }
-
-  const tokenSymbolText = tokenQuery.data?.symbol ? ` (${ tokenQuery.data.symbol })` : '';
 
   const tabListProps = React.useCallback(({ isSticky, activeTabIndex }: { isSticky: boolean; activeTabIndex: number }) => {
     if (isMobile) {
@@ -218,86 +218,51 @@ const TokenPageContent = () => {
     }
 
     return {
-      mt: 3,
-      py: 5,
+      pt: 6,
+      pb: 6,
       marginBottom: 0,
       boxShadow: activeTabIndex === 2 && isSticky ? 'action_bar' : 'none',
     };
   }, [ isMobile ]);
 
-  const backLink = React.useMemo(() => {
-    const hasGoBackLink = appProps.referrer && appProps.referrer.includes('/tokens');
-
-    if (!hasGoBackLink) {
-      return;
+  const tabsRightSlot = React.useMemo(() => {
+    if (isMobile) {
+      return null;
     }
 
-    return {
-      label: 'Back to tokens list',
-      url: appProps.referrer,
-    };
-  }, [ appProps.referrer ]);
-
-  const titleContentAfter = (
-    <>
-      { verifiedInfoQuery.data?.tokenAddress && (
-        <Tooltip label={ `Information on this token has been verified by ${ config.chain.name }` }>
-          <Box boxSize={ 6 }>
-            <Icon as={ iconVerifiedToken } color="green.500" boxSize={ 6 } cursor="pointer"/>
-          </Box>
-        </Tooltip>
-      ) }
-      <EntityTags
-        data={ contractQuery.data }
-        isLoading={ tokenQuery.isPlaceholderData || contractQuery.isPlaceholderData }
-        tagsBefore={ [
-          tokenQuery.data ? { label: tokenQuery.data?.type, display_name: tokenQuery.data?.type } : undefined,
-        ] }
-        tagsAfter={
-          verifiedInfoQuery.data?.projectSector ?
-            [ { label: verifiedInfoQuery.data.projectSector, display_name: verifiedInfoQuery.data.projectSector } ] :
-            undefined
-        }
-        contentAfter={
-          <NetworkExplorers type="token" pathParam={ hashString } ml="auto" hideText={ isMobile }/>
-        }
-        flexGrow={ 1 }
-      />
-    </>
-  );
+    return (
+      <>
+        { tab === 'holders' && (
+          <AddressCsvExportLink
+            address={ hashString }
+            params={{ type: 'holders' }}
+            isLoading={ pagination?.isLoading }
+          />
+        ) }
+        { pagination?.isVisible && <Pagination { ...pagination }/> }
+      </>
+    );
+  }, [ hashString, isMobile, pagination, tab ]);
 
   return (
     <>
       <TextAd mb={ 6 }/>
-      <PageTitle
-        title={ `${ tokenQuery.data?.name || 'Unnamed token' }${ tokenSymbolText }` }
-        isLoading={ tokenQuery.isPlaceholderData }
-        backLink={ backLink }
-        beforeTitle={ tokenQuery.data ? (
-          <TokenEntity.Icon
-            token={ tokenQuery.data }
-            isLoading={ tokenQuery.isPlaceholderData }
-            iconSize="lg"
-          />
-        ) : null }
-        contentAfter={ titleContentAfter }
-      />
-      <TokenContractInfo tokenQuery={ tokenQuery } contractQuery={ contractQuery }/>
-      <TokenVerifiedInfo verifiedInfoQuery={ verifiedInfoQuery }/>
+
+      <TokenPageTitle tokenQuery={ tokenQuery } addressQuery={ addressQuery } hash={ hashString }/>
+
       <TokenDetails tokenQuery={ tokenQuery }/>
+
       { /* should stay before tabs to scroll up with pagination */ }
       <Box ref={ scrollRef }></Box>
 
-      { tokenQuery.isPlaceholderData || contractQuery.isPlaceholderData ?
-        <TabsSkeleton tabs={ tabs }/> :
-        (
-          <RoutedTabs
-            tabs={ tabs }
-            tabListProps={ tabListProps }
-            rightSlot={ !isMobile && pagination?.isVisible ? <Pagination { ...pagination }/> : null }
-            stickyEnabled={ !isMobile }
-          />
-        ) }
+      <RoutedTabs
+        tabs={ tabs }
+        tabListProps={ tabListProps }
+        rightSlot={ tabsRightSlot }
+        rightSlotProps={ TABS_RIGHT_SLOT_PROPS }
+        stickyEnabled={ !isMobile }
+        isLoading={ isLoading }
+      />
     </>
   );
 };

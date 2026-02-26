@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import { useQuery } from '@tanstack/react-query';
 
 import buildUrl from 'lib/api/buildUrl';
@@ -10,27 +9,30 @@ import useFetch from 'lib/hooks/useFetch';
 export default function useGetCsrfToken() {
   const nodeApiFetch = useFetch();
 
-  useQuery(getResourceKey('csrf'), async() => {
-    if (!isNeedProxy()) {
-      const url = buildUrl('csrf');
-      const apiResponse = await fetch(url, { credentials: 'include' });
-      const csrfFromHeader = apiResponse.headers.get('x-bs-account-csrf');
+  return useQuery({
+    queryKey: getResourceKey('csrf'),
+    queryFn: async() => {
+      if (!isNeedProxy()) {
+        const url = buildUrl('csrf');
+        const apiResponse = await fetch(url, { credentials: 'include' });
+        const csrfFromHeader = apiResponse.headers.get('x-bs-account-csrf');
 
-      if (!csrfFromHeader) {
-        Sentry.captureException(new Error('Client fetch failed'), { tags: {
-          source: 'fetch',
-          'source.resource': 'csrf',
-          'status.code': 500,
-          'status.text': 'Unable to obtain csrf token from header',
-        } });
-        return;
+        if (!csrfFromHeader) {
+          // I am not sure should we log this error or not
+          // so I commented it out for now
+          // rollbar?.warn('Client fetch failed', {
+          //   resource: 'csrf',
+          //   status_code: 500,
+          //   status_text: 'Unable to obtain csrf token from header',
+          // });
+          return;
+        }
+
+        return { token: csrfFromHeader };
       }
 
-      return { token: csrfFromHeader };
-    }
-
-    return nodeApiFetch('/node-api/csrf');
-  }, {
+      return nodeApiFetch('/node-api/csrf');
+    },
     enabled: Boolean(cookies.get(cookies.NAMES.API_TOKEN)),
   });
 }

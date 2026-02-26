@@ -1,10 +1,14 @@
-import { Flex, HStack, Grid, GridItem, Skeleton } from '@chakra-ui/react';
+import { Flex, HStack, Grid, GridItem } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
 import type { TokenInfo } from 'types/api/token';
 
+import config from 'configs/app';
+import getItemIndex from 'lib/getItemIndex';
+import { getTokenTypeName } from 'lib/token/tokenTypes';
 import AddressAddToWallet from 'ui/shared/address/AddressAddToWallet';
+import Skeleton from 'ui/shared/chakra/Skeleton';
 import Tag from 'ui/shared/chakra/Tag';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import TokenEntity from 'ui/shared/entities/token/TokenEntity';
@@ -15,9 +19,9 @@ type Props = {
   index: number;
   page: number;
   isLoading?: boolean;
-}
+};
 
-const PAGE_SIZE = 50;
+const bridgedTokensFeature = config.features.bridgedTokens;
 
 const TokensTableItem = ({
   token,
@@ -28,11 +32,17 @@ const TokensTableItem = ({
 
   const {
     address,
+    filecoin_robust_address: filecoinRobustAddress,
     exchange_rate: exchangeRate,
     type,
     holders,
     circulating_market_cap: marketCap,
+    origin_chain_id: originalChainId,
   } = token;
+
+  const bridgedChainTag = bridgedTokensFeature.isEnabled ?
+    bridgedTokensFeature.chains.find(({ id }) => id === originalChainId)?.short_title :
+    undefined;
 
   return (
     <ListItemMobile rowGap={ 3 }>
@@ -50,15 +60,18 @@ const TokensTableItem = ({
             fontSize="sm"
             fontWeight="700"
           />
-          <Tag flexShrink={ 0 } isLoading={ isLoading } ml={ 3 }>{ type }</Tag>
+          <Flex ml={ 3 } flexShrink={ 0 } columnGap={ 1 }>
+            <Tag isLoading={ isLoading }>{ getTokenTypeName(type) }</Tag>
+            { bridgedChainTag && <Tag isLoading={ isLoading }>{ bridgedChainTag }</Tag> }
+          </Flex>
           <Skeleton isLoaded={ !isLoading } fontSize="sm" ml="auto" color="text_secondary" minW="24px" textAlign="right" lineHeight={ 6 }>
-            <span>{ (page - 1) * PAGE_SIZE + index + 1 }</span>
+            <span>{ getItemIndex(index, page) }</span>
           </Skeleton>
         </GridItem>
       </Grid>
       <Flex justifyContent="space-between" alignItems="center" width="150px" ml={ 7 } mt={ -2 }>
         <AddressEntity
-          address={{ hash: address }}
+          address={{ hash: address, filecoin: { robust: filecoinRobustAddress } }}
           isLoading={ isLoading }
           truncation="constant"
           noIcon

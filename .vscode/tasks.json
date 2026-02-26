@@ -25,6 +25,27 @@
                 "instanceLimit": 1
             }
         },
+        {
+            "type": "shell",
+            "command": "yarn dev:preset:sync --name=${input:dev_config_preset}",
+            "problemMatcher": [],
+            "label": "dev preset sync",
+            "detail": "syncronize dev preset",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true,
+                "close": false,
+                "revealProblems": "onProblem",
+            },
+            "icon": {
+                "color": "terminal.ansiMagenta",
+                "id": "repo-sync"
+            },
+            "runOptions": {
+                "instanceLimit": 1
+            }
+        },
 
         // CODE CHECKS
         {
@@ -155,6 +176,27 @@
                 "instanceLimit": 1
             }
         },
+        {
+            "type": "shell",
+            "command": "yarn test:pw:detect-affected",
+            "problemMatcher": [],
+            "label": "pw: detect affected",
+            "detail": "detect PW tests affected by changes in current branch",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true,
+                "close": false,
+                "revealProblems": "onProblem",
+            },
+            "icon": {
+                "color": "terminal.ansiBlue",
+                "id": "diff"
+            },
+            "runOptions": {
+                "instanceLimit": 1
+            },
+        },
 
         // JEST TESTS
         {
@@ -265,7 +307,7 @@
         },
         {
             "type": "npm",
-            "script": "format-svg",
+            "script": "svg:format",
             "problemMatcher": [],
             "label": "format svg",
             "detail": "format svg files with svgo",
@@ -305,6 +347,7 @@
             "options": [
               "",
               "--update-snapshots",
+              "--update-snapshots --affected",
               "--ui",
             ],
             "default": ""
@@ -315,13 +358,31 @@
             "description": "Choose dev server config preset:",
             "options": [
               "main",
-              "main.L2",
-              "poa_core",
-              "eth_goerli",
-              "eth",
-              "rootstock",
-              "polygon",
               "localhost",
+              "arbitrum",
+              "arbitrum_sepolia",
+              "base",
+              "celo_alfajores",
+              "garnet",
+              "gnosis",
+              "immutable",
+              "eth",
+              "eth_goerli",
+              "eth_sepolia",
+              "filecoin",
+              "mekong",
+              "optimism",
+              "optimism_celestia",
+              "optimism_sepolia",
+              "polygon",
+              "rari_testnet",
+              "rootstock_testnet",
+              "shibarium",
+              "stability_testnet",
+              "zkevm",
+              "zilliqa_prototestnet",
+              "zksync",
+              "zora",
             ],
             "default": "main"
         },

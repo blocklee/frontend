@@ -9,7 +9,8 @@ const baseUrl = [
   appHost,
   appPort && ':' + appPort,
 ].filter(Boolean).join('');
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = getEnvValue('NEXT_PUBLIC_APP_ENV') === 'development';
+const spriteHash = getEnvValue('NEXT_PUBLIC_ICON_SPRITE_HASH');
 
 const app = Object.freeze({
   isDev,
@@ -19,6 +20,7 @@ const app = Object.freeze({
   baseUrl,
   useProxy: getEnvValue('NEXT_PUBLIC_USE_NEXT_JS_PROXY') === 'true',
   useAssets: getEnvValue('NEXT_PUBLIC_DISABLE_DOWNLOAD_AT_RUN_TIME') === 'true',
+  spriteHash,
 });
 
 export default app;

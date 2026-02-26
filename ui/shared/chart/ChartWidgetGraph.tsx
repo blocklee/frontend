@@ -1,11 +1,10 @@
 import { useToken } from '@chakra-ui/react';
 import * as d3 from 'd3';
-import React, { useEffect, useMemo } from 'react';
+import React from 'react';
 
-import type { ChartMargin, TimeChartItem } from 'ui/shared/chart/types';
+import { Resolution } from '@blockscout/stats-types';
+import type { ChartMargin, TimeChartData, TimeChartItem } from 'ui/shared/chart/types';
 
-import dayjs from 'lib/date/dayjs';
-import useClientRect from 'lib/hooks/useClientRect';
 import useIsMobile from 'lib/hooks/useIsMobile';
 import ChartArea from 'ui/shared/chart/ChartArea';
 import ChartAxis from 'ui/shared/chart/ChartAxis';
@@ -15,64 +14,76 @@ import ChartOverlay from 'ui/shared/chart/ChartOverlay';
 import ChartSelectionX from 'ui/shared/chart/ChartSelectionX';
 import ChartTooltip from 'ui/shared/chart/ChartTooltip';
 import useTimeChartController from 'ui/shared/chart/useTimeChartController';
-import calculateInnerSize from 'ui/shared/chart/utils/calculateInnerSize';
 
 interface Props {
   isEnlarged?: boolean;
   title: string;
   units?: string;
   items: Array<TimeChartItem>;
-  onZoom: () => void;
-  isZoomResetInitial: boolean;
+  zoomRange?: [ Date, Date ];
+  onZoom: (range: [ Date, Date ]) => void;
   margin?: ChartMargin;
+  noAnimation?: boolean;
+  resolution?: Resolution;
 }
 
-// temporarily turn off the data aggregation, we need a better algorithm for that
-const MAX_SHOW_ITEMS = 100_000_000_000;
-const DEFAULT_CHART_MARGIN = { bottom: 20, left: 40, right: 20, top: 10 };
+const DEFAULT_CHART_MARGIN = { bottom: 20, left: 10, right: 20, top: 10 };
 
-const ChartWidgetGraph = ({ isEnlarged, items, onZoom, isZoomResetInitial, title, margin, units }: Props) => {
+const ChartWidgetGraph = ({
+  isEnlarged,
+  items,
+  onZoom,
+  title,
+  margin: marginProps,
+  units,
+  noAnimation,
+  resolution,
+  zoomRange,
+}: Props) => {
   const isMobile = useIsMobile();
   const color = useToken('colors', 'blue.200');
+  const chartId = `chart-${ title.split(' ').join('') }-${ isEnlarged ? 'fullscreen' : 'small' }`;
+
   const overlayRef = React.useRef<SVGRectElement>(null);
 
-  const [ rect, ref ] = useClientRect<SVGSVGElement>();
-  const chartMargin = { ...DEFAULT_CHART_MARGIN, ...margin };
-  const { innerWidth, innerHeight } = calculateInnerSize(rect, chartMargin);
+  const range = React.useMemo(() => zoomRange || [ items[0].date, items[items.length - 1].date ], [ zoomRange, items ]);
 
-  const chartId = `chart-${ title.split(' ').join('') }-${ isEnlarged ? 'fullscreen' : 'small' }`;
-  const [ range, setRange ] = React.useState<[ Date, Date ]>([ items[0].date, items[items.length - 1].date ]);
+  const displayedData = React.useMemo(() =>
+    items
+      .filter((item) => item.date >= range[0] && item.date <= range[1])
+      .map((item) => ({
+        ...item,
+        dateLabel: getDateLabel(item.date, item.date_to, resolution),
+      })),
+  [ items, range, resolution ]);
 
-  const rangedItems = useMemo(() =>
-    items.filter((item) => item.date >= range[0] && item.date <= range[1]),
-  [ items, range ]);
-  const isGroupedValues = rangedItems.length > MAX_SHOW_ITEMS;
+  const chartData: TimeChartData = React.useMemo(() => ([ { items: displayedData, name: 'Value', color, units } ]), [ color, displayedData, units ]);
 
-  const displayedData = useMemo(() => {
-    if (isGroupedValues) {
-      return groupChartItemsByWeekNumber(rangedItems);
-    } else {
-      return rangedItems;
-    }
-  }, [ isGroupedValues, rangedItems ]);
-  const chartData = React.useMemo(() => ([ { items: displayedData, name: 'Value', color, units } ]), [ color, displayedData, units ]);
+  const margin: ChartMargin = React.useMemo(() => ({ ...DEFAULT_CHART_MARGIN, ...marginProps }), [ marginProps ]);
+  const axesConfig = React.useMemo(() => {
+    return {
+      x: {
+        ticks: isEnlarged && !isMobile ? 8 : 4,
+      },
+      y: {
+        ticks: isEnlarged ? 6 : 3,
+        nice: true,
+      },
+    };
+  }, [ isEnlarged, isMobile ]);
 
-  const { xTickFormat, yTickFormat, xScale, yScale } = useTimeChartController({
-    data: [ { items: displayedData, name: title, color } ],
-    width: innerWidth,
-    height: innerHeight,
+  const {
+    ref,
+    rect,
+    innerWidth,
+    innerHeight,
+    chartMargin,
+    axes,
+  } = useTimeChartController({
+    data: chartData,
+    margin,
+    axesConfig,
   });
-
-  const handleRangeSelect = React.useCallback((nextRange: [ Date, Date ]) => {
-    setRange([ nextRange[0], nextRange[1] ]);
-    onZoom();
-  }, [ onZoom ]);
-
-  useEffect(() => {
-    if (isZoomResetInitial) {
-      setRange([ items[0].date, items[items.length - 1].date ]);
-    }
-  }, [ isZoomResetInitial, items ]);
 
   return (
     <svg width="100%" height="100%" ref={ ref } cursor="pointer" id={ chartId } opacity={ rect ? 1 : 0 }>
@@ -80,24 +91,25 @@ const ChartWidgetGraph = ({ isEnlarged, items, onZoom, isZoomResetInitial, title
       <g transform={ `translate(${ chartMargin?.left || 0 },${ chartMargin?.top || 0 })` }>
         <ChartGridLine
           type="horizontal"
-          scale={ yScale }
-          ticks={ isEnlarged ? 6 : 3 }
+          scale={ axes.y.scale }
+          ticks={ axesConfig.y.ticks }
           size={ innerWidth }
-          disableAnimation
+          noAnimation
         />
 
         <ChartArea
           id={ chartId }
           data={ displayedData }
           color={ color }
-          xScale={ xScale }
-          yScale={ yScale }
+          xScale={ axes.x.scale }
+          yScale={ axes.y.scale }
+          noAnimation={ noAnimation }
         />
 
         <ChartLine
           data={ displayedData }
-          xScale={ xScale }
-          yScale={ yScale }
+          xScale={ axes.x.scale }
+          yScale={ axes.y.scale }
           stroke={ color }
           animation="none"
           strokeWidth={ isMobile ? 1 : 2 }
@@ -105,39 +117,41 @@ const ChartWidgetGraph = ({ isEnlarged, items, onZoom, isZoomResetInitial, title
 
         <ChartAxis
           type="left"
-          scale={ yScale }
-          ticks={ isEnlarged ? 6 : 3 }
-          tickFormatGenerator={ yTickFormat }
-          disableAnimation
+          scale={ axes.y.scale }
+          ticks={ axesConfig.y.ticks }
+          tickFormatGenerator={ axes.y.tickFormatter }
+          noAnimation
         />
 
         <ChartAxis
           type="bottom"
-          scale={ xScale }
+          scale={ axes.x.scale }
           transform={ `translate(0, ${ innerHeight })` }
-          ticks={ isMobile ? 1 : 4 }
+          ticks={ axesConfig.x.ticks }
           anchorEl={ overlayRef.current }
-          tickFormatGenerator={ xTickFormat }
-          disableAnimation
+          tickFormatGenerator={ axes.x.tickFormatter }
+          noAnimation
         />
 
         <ChartOverlay ref={ overlayRef } width={ innerWidth } height={ innerHeight }>
           <ChartTooltip
             anchorEl={ overlayRef.current }
             width={ innerWidth }
-            tooltipWidth={ isGroupedValues ? 280 : 200 }
+            tooltipWidth={ (resolution === Resolution.WEEK) ? 280 : 200 }
             height={ innerHeight }
-            xScale={ xScale }
-            yScale={ yScale }
+            xScale={ axes.x.scale }
+            yScale={ axes.y.scale }
             data={ chartData }
+            noAnimation={ noAnimation }
+            resolution={ resolution }
           />
 
           <ChartSelectionX
             anchorEl={ overlayRef.current }
             height={ innerHeight }
-            scale={ xScale }
+            scale={ axes.x.scale }
             data={ chartData }
-            onSelect={ handleRangeSelect }
+            onSelect={ onZoom }
           />
         </ChartOverlay>
       </g>
@@ -147,13 +161,15 @@ const ChartWidgetGraph = ({ isEnlarged, items, onZoom, isZoomResetInitial, title
 
 export default React.memo(ChartWidgetGraph);
 
-function groupChartItemsByWeekNumber(items: Array<TimeChartItem>): Array<TimeChartItem> {
-  return d3.rollups(items,
-    (group) => ({
-      date: group[0].date,
-      value: d3.sum(group, (d) => d.value),
-      dateLabel: `${ d3.timeFormat('%e %b %Y')(group[0].date) } – ${ d3.timeFormat('%e %b %Y')(group[group.length - 1].date) }`,
-    }),
-    (t) => `${ dayjs(t.date).week() } / ${ dayjs(t.date).year() }`,
-  ).map(([ , v ]) => v);
+function getDateLabel(date: Date, dateTo?: Date, resolution?: Resolution): string {
+  switch (resolution) {
+    case Resolution.WEEK:
+      return d3.timeFormat('%e %b %Y')(date) + (dateTo ? ` – ${ d3.timeFormat('%e %b %Y')(dateTo) }` : '');
+    case Resolution.MONTH:
+      return d3.timeFormat('%b %Y')(date);
+    case Resolution.YEAR:
+      return d3.timeFormat('%Y')(date);
+    default:
+      return d3.timeFormat('%e %b %Y')(date);
+  }
 }

@@ -1,113 +1,132 @@
-import { AspectRatio, chakra, Skeleton, useDisclosure } from '@chakra-ui/react';
+import { AspectRatio, chakra, useDisclosure } from '@chakra-ui/react';
 import React from 'react';
 import { useInView } from 'react-intersection-observer';
 
+import type { TokenInstance } from 'types/api/token';
+
+import Skeleton from 'ui/shared/chakra/Skeleton';
+
 import NftFallback from './NftFallback';
 import NftHtml from './NftHtml';
-import NftHtmlFullscreen from './NftHtmlFullscreen';
 import NftImage from './NftImage';
-import NftImageFullscreen from './NftImageFullscreen';
+import NftMediaFullscreenModal from './NftMediaFullscreenModal';
 import NftVideo from './NftVideo';
-import NftVideoFullscreen from './NftVideoFullscreen';
-import useNftMediaType from './useNftMediaType';
+import useNftMediaInfo from './useNftMediaInfo';
+import type { MediaType, Size } from './utils';
 import { mediaStyleProps } from './utils';
 
 interface Props {
-  url: string | null;
+  data: TokenInstance;
+  size?: Size;
+  allowedTypes?: Array<MediaType>;
   className?: string;
   isLoading?: boolean;
   withFullscreen?: boolean;
+  autoplayVideo?: boolean;
+  fallback?: React.ReactNode;
 }
 
-const NftMedia = ({ url, className, isLoading, withFullscreen }: Props) => {
-  const [ isMediaLoading, setIsMediaLoading ] = React.useState(Boolean(url));
-  const [ isLoadingError, setIsLoadingError ] = React.useState(false);
+const NftMedia = ({ data, size = 'original', allowedTypes, className, isLoading, withFullscreen, autoplayVideo, fallback }: Props) => {
+  const [ isMediaLoading, setIsMediaLoading ] = React.useState(true);
+  const [ isMediaLoadingError, setIsMediaLoadingError ] = React.useState(false);
+  const [ mediaInfoIndex, setMediaInfoIndex ] = React.useState(0);
+  const [ mediaInfoField, setMediaInfoField ] = React.useState<'animation_url' | 'image_url'>('animation_url');
 
   const { ref, inView } = useInView({ triggerOnce: true });
 
-  const type = useNftMediaType(url, !isLoading && inView);
+  const mediaInfoQuery = useNftMediaInfo({ data, size, allowedTypes, field: mediaInfoField, isEnabled: !isLoading && inView });
+
+  React.useEffect(() => {
+    if (!mediaInfoQuery.isPending && !mediaInfoQuery.data) {
+      if (mediaInfoField === 'animation_url') {
+        setMediaInfoField('image_url');
+      } else {
+        setIsMediaLoadingError(true);
+        setIsMediaLoading(false);
+      }
+    }
+  }, [ mediaInfoQuery.isPending, mediaInfoQuery.data, mediaInfoField ]);
 
   const handleMediaLoaded = React.useCallback(() => {
     setIsMediaLoading(false);
   }, []);
 
   const handleMediaLoadError = React.useCallback(() => {
+    if (mediaInfoQuery.data) {
+      if (mediaInfoIndex < mediaInfoQuery.data.length - 1) {
+        setMediaInfoIndex(mediaInfoIndex + 1);
+        return;
+      } else if (mediaInfoField === 'animation_url') {
+        setMediaInfoField('image_url');
+        setMediaInfoIndex(0);
+        return;
+      }
+    }
+
     setIsMediaLoading(false);
-    setIsLoadingError(true);
-  }, []);
+    setIsMediaLoadingError(true);
+  }, [ mediaInfoField, mediaInfoIndex, mediaInfoQuery.data ]);
 
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const content = (() => {
-    if (!url || isLoadingError) {
-      const styleProps = withFullscreen ? {} : mediaStyleProps;
-      return <NftFallback { ...styleProps }/>;
-    }
-
-    const props = {
-      src: url,
-      onLoad: handleMediaLoaded,
-      onError: handleMediaLoadError,
-      ...(withFullscreen ? { onClick: onOpen } : {}),
-    };
-
-    switch (type) {
-      case 'video':
-        return <NftVideo { ...props }/>;
-      case 'html':
-        return <NftHtml { ...props }/>;
-      case 'image':
-        return <NftImage { ...props }/>;
-      default:
-        return null;
-    }
-  })();
-
-  const modal = (() => {
-    if (!url || !withFullscreen) {
+    if (isLoading) {
       return null;
     }
 
+    if (isMediaLoadingError) {
+      const styleProps = withFullscreen ? {} : mediaStyleProps;
+      return fallback ?? <NftFallback { ...styleProps }/>;
+    }
+
+    const mediaInfo = mediaInfoQuery.data?.[mediaInfoIndex];
     const props = {
-      src: url,
-      isOpen,
-      onClose,
+      onLoad: handleMediaLoaded,
+      onError: handleMediaLoadError,
+      ...(withFullscreen ? { onClick: onOpen } : {}),
+      ...(size !== 'sm' ? mediaStyleProps : {}),
     };
 
-    switch (type) {
-      case 'video':
-        return <NftVideoFullscreen { ...props }/>;
+    switch (mediaInfo?.mediaType) {
+      case 'video': {
+        return <NftVideo { ...props } src={ mediaInfo.src } transport={ mediaInfo.transport } autoPlay={ autoplayVideo } instance={ data }/>;
+      }
       case 'html':
-        return <NftHtmlFullscreen { ...props }/>;
-      case 'image':
-        return <NftImageFullscreen { ...props }/>;
+        return <NftHtml { ...props } src={ mediaInfo.src } transport={ mediaInfo.transport }/>;
+      case 'image': {
+        return <NftImage { ...props } src={ mediaInfo.src } srcSet={ mediaInfo.srcSet } transport={ mediaInfo.transport }/>;
+      }
       default:
         return null;
     }
   })();
 
   return (
-    <AspectRatio
-      ref={ ref }
-      className={ className }
-      ratio={ 1 / 1 }
-      overflow="hidden"
-      borderRadius="md"
-      objectFit="contain"
-      isolation="isolate"
-      sx={{
-        '&>img, &>video': {
-          objectFit: 'contain',
-        },
-      }}
-    >
-      <>
-        { content }
-        { modal }
-        { isMediaLoading && <Skeleton position="absolute" left={ 0 } top={ 0 } w="100%" h="100%" zIndex="1"/> }
-      </>
-    </AspectRatio>
+    <>
+      <AspectRatio
+        ref={ ref }
+        className={ className }
+        ratio={ 1 / 1 }
+        overflow="hidden"
+        borderRadius="md"
+        objectFit="contain"
+        isolation="isolate"
+        sx={{
+          '&>img, &>video': {
+            objectFit: 'contain',
+          },
+        }}
+      >
+        <>
+          { content }
+          { isMediaLoading && <Skeleton position="absolute" left={ 0 } top={ 0 } w="100%" h="100%" zIndex="1"/> }
+        </>
+      </AspectRatio>
+      { isOpen && (
+        <NftMediaFullscreenModal isOpen={ isOpen } onClose={ onClose } data={ data } allowedTypes={ allowedTypes } field={ mediaInfoField }/>
+      ) }
+    </>
   );
 };
 
-export default chakra(NftMedia);
+export default chakra(React.memo(NftMedia));

@@ -1,5 +1,6 @@
-// https://unicode-table.com
-export const asymp = String.fromCharCode(8776); // ~
+// https://symbl.cc/en/
+export const asymp = String.fromCharCode(8776); // ≈
+export const tilde = String.fromCharCode(126); // ~
 export const hellip = String.fromCharCode(8230); // …
 export const nbsp = String.fromCharCode(160); // no-break Space
 export const thinsp = String.fromCharCode(8201); // thin Space
@@ -22,3 +23,4 @@ export const apos = String.fromCharCode(39); // apostrophe '
 export const shift = String.fromCharCode(8679); // upwards white arrow ⇧
 export const cmd = String.fromCharCode(8984); // place of interest sign ⌘
 export const alt = String.fromCharCode(9095); // alternate key symbol ⎇
+export const copy = String.fromCharCode(169); // copyright symbol ©

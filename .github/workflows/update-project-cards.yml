@@ -48,7 +48,7 @@ jobs:
         steps:
             -   name: Getting project info
                 id: project_info
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     PROJECT_NAME: ${{ inputs.project_name }}
                     FIELD_NAME: ${{ inputs.field_name }}
@@ -97,11 +97,11 @@ jobs:
                         }
                         
                         if (projects.length > 1) {
-                            core.info(`Fould ${ projects.length } with the similar name:`);
+                            core.info(`Found ${ projects.length } with the similar name:`);
                             projects.forEach((issue) => {
                                 core.info(`    #${ projects.number } - ${ projects.title }`);
                             })
-                            core.setFailed('Fould multiple projects with the similar name. Cannot determine which one to use.');
+                            core.setFailed('Found multiple projects with the similar name. Cannot determine which one to use.');
                             return;
                         }
                         
@@ -131,7 +131,7 @@ jobs:
 
             -   name: Getting project items that linked to the issues
                 id: items
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     ISSUES: ${{ inputs.issues }}
                 with:
@@ -193,7 +193,7 @@ jobs:
 
             -   name: Updating field value of the project items
                 id: updating_items
-                uses: actions/github-script@v6
+                uses: actions/github-script@v7
                 env:
                     ITEMS: ${{ steps.items.outputs.result }}
                     PROJECT_ID: ${{ steps.project_info.outputs.id }}
@@ -212,8 +212,12 @@ jobs:
 
                         for (const item of items) {
                             core.info(`Changing field value for item ${ item }...`);
-                            await changeItemFieldValue(item);
-                            core.info('Done.\n');
+                            try {
+                                await changeItemFieldValue(item);
+                                core.info('Done.\n');
+                            } catch (error) {
+                                core.info(`Error: ${ error.message }\n`);
+                            }
                         }
 
                         async function changeItemFieldValue(itemId) {

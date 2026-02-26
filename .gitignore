@@ -12,8 +12,16 @@
 # next.js
 /.next/
 /out/
-/public/assets/
-/public/envs.js
+/public/assets/envs.js
+/public/assets/configs
+/public/icons/sprite.svg
+/public/icons/sprite.*.svg
+/public/icons/registry.json
+/public/icons/README.md
+/public/static/og_image.png
+/public/sitemap.xml
+/public/robots.txt
+/analyze
 
 # production
 /build
@@ -22,6 +30,7 @@
 .DS_Store
 *.pem
 .tools
+grafana
 
 # debug
 npm-debug.log*
@@ -39,14 +48,15 @@ yarn-error.log*
 
 .eslintcache
 
-# Sentry
-.sentryclirc
-
 **.decrypted~**
 /test-results/
 /playwright-report/
 /playwright/.cache/
 /playwright/.browser/
 /playwright/envs.js
+/playwright/affected-tests.txt
 
 **.dec**
+
+# build outputs
+/tools/preset-sync/index.js
