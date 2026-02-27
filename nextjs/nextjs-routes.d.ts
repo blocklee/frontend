@@ -27,9 +27,8 @@ declare module "nextjs-routes" {
     | StaticRoute<"/api/monitoring/invalid-api-schema">
     | StaticRoute<"/api/proxy">
     | StaticRoute<"/api-docs">
-    | StaticRoute<"/apps">
     | DynamicRoute<"/apps/[id]", { "id": string }>
-    | StaticRoute<"/auth/auth0">
+    | StaticRoute<"/apps">
     | StaticRoute<"/auth/profile">
     | DynamicRoute<"/batches/[number]", { "number": string }>
     | DynamicRoute<"/batches/celestia/[height]/[commitment]", { "height": string; "commitment": string }>

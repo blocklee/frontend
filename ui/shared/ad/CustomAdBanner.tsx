@@ -1,4 +1,4 @@
-import { Flex, chakra, Tooltip, Image, chakra } from '@chakra-ui/react';
+import { Flex, chakra, Tooltip, Image } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import shuffle from 'lodash/shuffle';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -16,12 +16,18 @@ const CustomAdBanner = ({ className }: { className?: string }) => {
   const isMobile = useIsMobile();
 
   const feature = config.features.adsBanner;
-  const configUrl = (feature.isEnabled && feature.provider === 'custom') ? feature.configUrl : '';
+  const configUrl = (feature.isEnabled && feature.provider === 'custom' && 'configUrl' in feature) ? feature.configUrl : '';
 
   const apiFetch = useFetch();
   const { data: adConfig, isLoading, isError } = useQuery<AdCustomConfig, ResourceError<unknown>>({
     queryKey: [ 'ad-banner-custom-config' ],
-    queryFn: async() => apiFetch(configUrl),
+    queryFn: async() => {
+      const result = await apiFetch(configUrl);
+      if ((result as ResourceError<unknown>).status !== undefined) {
+        throw result;
+      }
+      return result as AdCustomConfig;
+    },
     enabled: feature.isEnabled && feature.provider === 'custom',
     staleTime: Infinity,
   });
