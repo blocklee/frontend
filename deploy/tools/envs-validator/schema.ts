@@ -463,20 +463,22 @@ const adButlerConfigSchema = yup
 
 // 自定义单条 banner 配置
 const adCustomBannerConfigSchema: yup.ObjectSchema<CustomAdBanner> = yup
-  .object({
-    text: yup.string(),
-    url: yup.string().test(urlTest),
+  .object()
+  .shape({
+    text: yup.string().required(),
+    url: yup.string().test(urlTest).required(),
     desktopImageUrl: yup.string().test(urlTest).required(),
     mobileImageUrl: yup.string().test(urlTest).required(),
   });
 
 // 自定义广告配置（多个 banner）
 const adCustomConfigSchema: yup.ObjectSchema<CustomAdConfig> = yup
-  .object({
+  .object()
+  .shape({
     banners: yup.array().of(adCustomBannerConfigSchema).required(),
-    interval: yup.number().positive(),
-    randomStart: yup.boolean(),
-    randomNextAd: yup.boolean(),
+    interval: yup.number().positive().required(),
+    randomStart: yup.boolean().required(),
+    randomNextAd: yup.boolean().required(),
   })
   .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
     is: (value: AdBannerProviders) => value === 'custom',
