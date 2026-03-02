@@ -10,6 +10,7 @@ import Skeleton from 'ui/shared/chakra/Skeleton';
 import AdbutlerBanner from './AdbutlerBanner';
 import CoinzillaBanner from './CoinzillaBanner';
 // import GetitBanner from './GetitBanner';
+import CustomBanner from './CustomBanner'; // 导入自定义轮播广告组件
 import HypeBanner from './HypeBanner';
 import SliseBanner from './SliseBanner';
 
@@ -35,7 +36,21 @@ const AdBannerContent = ({ className, isLoading, provider, platform }: Props) =>
         return <HypeBanner platform={ platform }/>;
       case 'slise':
         return <SliseBanner platform={ platform }/>;
+      case 'custom':
+        // 类型断言（当确定 feature 一定是 custom 类型时）
+        return <CustomBanner platform={ platform } configUrl={ (feature as { customConfigUrl: string }).customConfigUrl }/>;
     }
+  })();
+
+  // 获取最大宽度（可选）
+  const maxWidth = (() => {
+    if ('adButler' in feature && feature.adButler) {
+      return `${ feature.adButler.config.desktop.width }px`;
+    }
+    if (provider === 'custom') {
+      return '728px';
+    }
+    return '728px';
   })();
 
   return (
@@ -43,7 +58,7 @@ const AdBannerContent = ({ className, isLoading, provider, platform }: Props) =>
       className={ className }
       isLoaded={ !isLoading }
       borderRadius="none"
-      maxW={ ('adButler' in feature && feature.adButler) ? feature.adButler.config.desktop.width : '728px' }
+      maxW={ maxWidth }
       w="100%"
     >
       { content }

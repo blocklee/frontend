@@ -18,6 +18,7 @@ const TEST_URLS: Record<AdBannerProviders, string> = {
   hype: 'https://api.hypelab.com/v1/scripts/hp-sdk.js',
   // I don't have an url for getit to test
   // getit: DEFAULT_URL,
+  custom: 'https://raw.githubusercontent.com/X2074/evm_frontend-configs/main/configs/ad-custom-config/qitmeer.json', // 添加custom的测试URL
   none: DEFAULT_URL,
 };
 

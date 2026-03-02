@@ -5,6 +5,7 @@ export const SUPPORTED_AD_BANNER_PROVIDERS = [
   'adbutler',
   'coinzilla',
   'hype',
+  'custom', // 新增：meer 自定义轮播广告
   //   'getit', // temporary disabled
   'none',
 ] as const;

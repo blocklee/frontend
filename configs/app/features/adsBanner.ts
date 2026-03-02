@@ -16,7 +16,7 @@ const additionalProvider = getEnvValue('NEXT_PUBLIC_AD_BANNER_ADDITIONAL_PROVIDE
 const title = 'Banner ads';
 
 type AdsBannerFeaturePayload = {
-  provider: Exclude<AdBannerProviders, 'adbutler' | 'none'>;
+  provider: Exclude<AdBannerProviders, 'adbutler' | 'none' | 'custom'>;
 } | {
   provider: 'adbutler';
   adButler: {
@@ -34,10 +34,24 @@ type AdsBannerFeaturePayload = {
       mobile: AdButlerConfig;
     };
   };
+} | {
+  provider: 'custom'; // 自定义轮播广告
+  customConfigUrl: string; // 配置文件URL
 };
 
 const config: Feature<AdsBannerFeaturePayload> = (() => {
-  if (provider === 'adbutler') {
+  // 处理meer自定义轮播广告
+  if (provider === 'custom') {
+    const configUrl = getEnvValue('NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL');
+    if (configUrl) {
+      return Object.freeze({
+        title,
+        isEnabled: true,
+        provider,
+        customConfigUrl: configUrl, // 将URL传递给组件
+      });
+    }
+  } else if (provider === 'adbutler') {
     const desktopConfig = parseEnvJson<AdButlerConfig>(getEnvValue('NEXT_PUBLIC_AD_ADBUTLER_CONFIG_DESKTOP'));
     const mobileConfig = parseEnvJson<AdButlerConfig>(getEnvValue('NEXT_PUBLIC_AD_ADBUTLER_CONFIG_MOBILE'));
 
