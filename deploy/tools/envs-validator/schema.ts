@@ -460,6 +460,16 @@ const adButlerConfigSchema = yup
       .required(),
   });
 
+// 👇 新增
+const adCustomConfigSchema = yup
+  .string()
+  .url()
+  .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
+    is: (value: AdBannerProviders) => value === 'custom',
+    then: (schema) => schema.required(),
+    otherwise: (schema) => schema.notRequired(),
+  });
+
 const adsBannerSchema = yup
   .object()
   .shape({
@@ -467,6 +477,8 @@ const adsBannerSchema = yup
     NEXT_PUBLIC_AD_BANNER_ADDITIONAL_PROVIDER: yup.string<AdBannerAdditionalProviders>().oneOf(SUPPORTED_AD_BANNER_ADDITIONAL_PROVIDERS),
     NEXT_PUBLIC_AD_ADBUTLER_CONFIG_DESKTOP: adButlerConfigSchema,
     NEXT_PUBLIC_AD_ADBUTLER_CONFIG_MOBILE: adButlerConfigSchema,
+    // 👇 新增
+    NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL: adCustomConfigSchema,
   });
 
 // DEPRECATED
