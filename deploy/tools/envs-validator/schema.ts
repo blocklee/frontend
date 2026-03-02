@@ -10,6 +10,7 @@ declare module 'yup' {
 import * as yup from 'yup';
 
 import type { AdButlerConfig } from '../../../types/client/adButlerConfig';
+import type { CustomAdConfig, CustomAdBanner } from '../../../types/client/adCustomConfig';
 import type { AddressProfileAPIConfig } from '../../../types/client/addressProfileAPIConfig';
 import { SUPPORTED_AD_TEXT_PROVIDERS, SUPPORTED_AD_BANNER_PROVIDERS, SUPPORTED_AD_BANNER_ADDITIONAL_PROVIDERS } from '../../../types/client/adProviders';
 import type { AdTextProviders, AdBannerProviders, AdBannerAdditionalProviders } from '../../../types/client/adProviders';
@@ -460,14 +461,33 @@ const adButlerConfigSchema = yup
       .required(),
   });
 
-// 👇 新增
-const adCustomConfigSchema = yup
-  .string()
-  .url()
+// 自定义单条 banner 配置
+const adCustomBannerConfigSchema: yup.ObjectSchema<CustomAdBanner> = yup
+  .object({
+    text: yup.string(),
+    url: yup.string().test(urlTest),
+    desktopImageUrl: yup.string().test(urlTest).required(),
+    mobileImageUrl: yup.string().test(urlTest).required(),
+  });
+
+// 自定义广告配置（多个 banner）
+const adCustomConfigSchema: yup.ObjectSchema<CustomAdConfig> = yup
+  .object({
+    banners: yup.array().of(adCustomBannerConfigSchema).required(),
+    interval: yup.number().positive(),
+    randomStart: yup.boolean(),
+    randomNextAd: yup.boolean(),
+  })
   .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
     is: (value: AdBannerProviders) => value === 'custom',
-    then: (schema) => schema.required(),
-    otherwise: (schema) => schema.notRequired(),
+    // TS7006 修复：明确 schema 类型
+    then: (schema: yup.ObjectSchema<CustomAdConfig>) => schema.required(),
+    otherwise: (schema: yup.ObjectSchema<CustomAdConfig>) =>
+      schema.test(
+        'custom-validation',
+        'NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL cannot be used without NEXT_PUBLIC_AD_BANNER_PROVIDER being set to "custom"',
+        () => false, // 显式返回 false
+      ),
   });
 
 const adsBannerSchema = yup
@@ -477,8 +497,7 @@ const adsBannerSchema = yup
     NEXT_PUBLIC_AD_BANNER_ADDITIONAL_PROVIDER: yup.string<AdBannerAdditionalProviders>().oneOf(SUPPORTED_AD_BANNER_ADDITIONAL_PROVIDERS),
     NEXT_PUBLIC_AD_ADBUTLER_CONFIG_DESKTOP: adButlerConfigSchema,
     NEXT_PUBLIC_AD_ADBUTLER_CONFIG_MOBILE: adButlerConfigSchema,
-    // 👇 新增
-    NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL: adCustomConfigSchema,
+    NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL: adCustomConfigSchema, // 👈 custom URL 校验
   });
 
 // DEPRECATED
