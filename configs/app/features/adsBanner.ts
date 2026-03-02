@@ -1,6 +1,5 @@
 import type { Feature } from './types';
 import type { AdButlerConfig } from 'types/client/adButlerConfig';
-import type { CustomAdConfig } from 'types/client/adCustomConfig';
 import { SUPPORTED_AD_BANNER_PROVIDERS } from 'types/client/adProviders';
 import type { AdBannerProviders, AdBannerAdditionalProviders } from 'types/client/adProviders';
 
@@ -37,7 +36,7 @@ type AdsBannerFeaturePayload = {
   };
 } | {
   provider: 'custom'; // 自定义轮播广告
-  customConfig: CustomAdConfig; // 解析后的配置对象
+  customConfigUrl: string; // 配置文件URL
 };
 
 const config: Feature<AdsBannerFeaturePayload> = (() => {
@@ -45,15 +44,12 @@ const config: Feature<AdsBannerFeaturePayload> = (() => {
   if (provider === 'custom') {
     const configUrl = getExternalAssetFilePath('NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL');
     if (configUrl) {
-      const customConfig = parseEnvJson<CustomAdConfig>(getEnvValue('NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL'));
-      if (customConfig) {
-        return Object.freeze({
-          title,
-          isEnabled: true,
-          provider,
-          customConfig, // 传对象给组件
-        });
-      }
+      return Object.freeze({
+        title,
+        isEnabled: true,
+        provider,
+        customConfigUrl: configUrl, // 将URL传递给组件
+      });
     }
   } else if (provider === 'adbutler') {
     const desktopConfig = parseEnvJson<AdButlerConfig>(getEnvValue('NEXT_PUBLIC_AD_ADBUTLER_CONFIG_DESKTOP'));
