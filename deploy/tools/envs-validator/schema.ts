@@ -461,46 +461,38 @@ const adButlerConfigSchema = yup
       .required(),
   });
 
-// // 自定义单条 banner 配置
-// const adCustomBannerConfigSchema: yup.ObjectSchema<CustomAdBanner> = yup
-//   .object()
-//   .shape({
-//     text: yup.string().required(),
-//     url: yup.string().test(urlTest).required(),
-//     desktopImageUrl: yup.string().test(urlTest).required(),
-//     mobileImageUrl: yup.string().test(urlTest).required(),
-//   });
+// 自定义单条 banner 配置
+const adCustomBannerConfigSchema = yup
+  .object<CustomAdBanner>()
+  .transform(replaceQuotes)
+  .shape({
+    text: yup.string().required(),
+    url: yup.string().test(urlTest).required(),
+    desktopImageUrl: yup.string().test(urlTest).required(),
+    mobileImageUrl: yup.string().test(urlTest).required(),
+  });
 
-// // 自定义广告配置（多个 banner）
-// const adCustomConfigSchema: yup.ObjectSchema<CustomAdConfig> = yup
-//   .object()
-//   .shape({
-//     banners: yup.array().of(adCustomBannerConfigSchema).required(),
-//     interval: yup.number().positive().required(),
-//     randomStart: yup.boolean().required(),
-//     randomNextAd: yup.boolean().required(),
-//   })
-//   .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
-//     is: (value: AdBannerProviders) => value === 'custom',
-//     // TS7006 修复：明确 schema 类型
-//     then: (schema: yup.ObjectSchema<CustomAdConfig>) => schema.required(),
-//     otherwise: (schema: yup.ObjectSchema<CustomAdConfig>) =>
-//       schema.test(
-//         'custom-validation',
-//         'NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL cannot be used without NEXT_PUBLIC_AD_BANNER_PROVIDER being set to "custom"',
-//         () => false, // 显式返回 false
-//       ),
-//   });
-
+// 自定义广告配置（多个 banner）
 const adCustomConfigSchema = yup
-  .string()
-  .url()
+  .object<CustomAdConfig>()
+  .shape({
+    banners: yup.array().of(adCustomBannerConfigSchema).required(),
+    interval: yup.number().positive().required(),
+    randomStart: yup.boolean().required(),
+    randomNextAd: yup.boolean().required(),
+  })
   .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
     is: (value: AdBannerProviders) => value === 'custom',
+    // TS7006 修复：明确 schema 类型
     then: (schema) => schema.required(),
-    otherwise: (schema) => schema.notRequired(),
+    otherwise: (schema) =>
+      schema.test(
+        'custom-validation',
+        'NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL cannot be used without NEXT_PUBLIC_AD_BANNER_PROVIDER being set to "custom"',
+        () => false, // 显式返回 false
+      ),
   });
-  
+
 const adsBannerSchema = yup
   .object()
   .shape({
