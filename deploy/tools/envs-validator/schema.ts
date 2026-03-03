@@ -461,37 +461,66 @@ const adButlerConfigSchema = yup
       .required(),
   });
 
-// 自定义单条 banner 配置
-const adCustomBannerConfigSchema = yup
-  .object<CustomAdBanner>()
-  .transform(replaceQuotes)
-  .shape({
-    text: yup.string().required(),
-    url: yup.string().test(urlTest).required(),
-    desktopImageUrl: yup.string().test(urlTest).required(),
-    mobileImageUrl: yup.string().test(urlTest).required(),
+// // 自定义单条 banner 配置
+// const adCustomBannerConfigSchema = yup
+//   .object<CustomAdBanner>()
+//   .transform(replaceQuotes)
+//   .shape({
+//     text: yup.string().required(),
+//     url: yup.string().test(urlTest).required(),
+//     desktopImageUrl: yup.string().test(urlTest).required(),
+//     mobileImageUrl: yup.string().test(urlTest).required(),
+//   });
+
+// // 自定义广告配置（多个 banner）
+// const adCustomConfigSchema = yup
+//   .object<CustomAdConfig>()
+//   .shape({
+//     banners: yup.array().of(adCustomBannerConfigSchema).required(),
+//     interval: yup.number().positive().required(),
+//     randomStart: yup.boolean().required(),
+//     randomNextAd: yup.boolean().required(),
+//   })
+//   .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
+//     is: (value: AdBannerProviders) => value === 'custom',
+//     // TS7006 修复：明确 schema 类型
+//     then: (schema) => schema.required(),
+//     otherwise: (schema) =>
+//       schema.test(
+//         'custom-validation',
+//         'NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL cannot be used without NEXT_PUBLIC_AD_BANNER_PROVIDER being set to "custom"',
+//         () => false, // 显式返回 false
+//       ),
+//   });
+
+// 1. URL 字符串验证（用于环境变量）
+const adCustomConfigUrlSchema = yup
+  .string()
+  .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
+    is: 'custom',
+    then: (schema) => schema
+      .required('Custom config URL is required when provider is "custom"')
+      .url('Must be a valid URL')
+      .matches(/\.json$/, 'URL must point to a JSON file'),
+    otherwise: (schema) => schema.notRequired(),
   });
 
-// 自定义广告配置（多个 banner）
-const adCustomConfigSchema = yup
-  .object<CustomAdConfig>()
-  .shape({
-    banners: yup.array().of(adCustomBannerConfigSchema).required(),
-    interval: yup.number().positive().required(),
-    randomStart: yup.boolean().required(),
-    randomNextAd: yup.boolean().required(),
-  })
-  .when('NEXT_PUBLIC_AD_BANNER_PROVIDER', {
-    is: (value: AdBannerProviders) => value === 'custom',
-    // TS7006 修复：明确 schema 类型
-    then: (schema) => schema.required(),
-    otherwise: (schema) =>
-      schema.test(
-        'custom-validation',
-        'NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL cannot be used without NEXT_PUBLIC_AD_BANNER_PROVIDER being set to "custom"',
-        () => false, // 显式返回 false
-      ),
-  });
+// // 2. 对象内容验证（用于获取的 JSON 数据）
+// const adCustomConfigContentSchema: yup.ObjectSchema<CustomAdConfig> = yup
+//   .object()
+//   .shape({
+//     banners: yup.array().of(
+//       yup.object().shape({
+//         text: yup.string().required('Banner text is required'),
+//         url: yup.string().url('Must be valid URL').required('Banner URL is required'),
+//         desktopImageUrl: yup.string().url('Must be valid URL').required('Desktop image URL is required'),
+//         mobileImageUrl: yup.string().url('Must be valid URL').required('Mobile image URL is required'),
+//       })
+//     ).required('Banners array is required').min(1, 'At least one banner is required'),
+//     interval: yup.number().positive('Interval must be positive').required('Interval is required'),
+//     randomStart: yup.boolean().required('randomStart is required'),
+//     randomNextAd: yup.boolean().required('randomNextAd is required'),
+//   });
 
 const adsBannerSchema = yup
   .object()
@@ -500,7 +529,7 @@ const adsBannerSchema = yup
     NEXT_PUBLIC_AD_BANNER_ADDITIONAL_PROVIDER: yup.string<AdBannerAdditionalProviders>().oneOf(SUPPORTED_AD_BANNER_ADDITIONAL_PROVIDERS),
     NEXT_PUBLIC_AD_ADBUTLER_CONFIG_DESKTOP: adButlerConfigSchema,
     NEXT_PUBLIC_AD_ADBUTLER_CONFIG_MOBILE: adButlerConfigSchema,
-    NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL: adCustomConfigSchema, // 👈 custom URL 校验
+    NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL: adCustomConfigUrlSchema, // 👈 custom URL 校验
   });
 
 // DEPRECATED
