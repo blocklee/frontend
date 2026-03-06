@@ -3,7 +3,7 @@ import type { AdButlerConfig } from 'types/client/adButlerConfig';
 import { SUPPORTED_AD_BANNER_PROVIDERS } from 'types/client/adProviders';
 import type { AdBannerProviders, AdBannerAdditionalProviders } from 'types/client/adProviders';
 
-import { getEnvValue, getExternalAssetFilePath, parseEnvJson } from '../utils';
+import { getEnvValue, parseEnvJson } from '../utils';
 
 const provider: AdBannerProviders = (() => {
   const envValue = getEnvValue('NEXT_PUBLIC_AD_BANNER_PROVIDER') as AdBannerProviders;
@@ -42,7 +42,7 @@ type AdsBannerFeaturePayload = {
 const config: Feature<AdsBannerFeaturePayload> = (() => {
   // 处理meer自定义轮播广告
   if (provider === 'custom') {
-    const configUrl = getExternalAssetFilePath('NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL');
+    const configUrl = getEnvValue('NEXT_PUBLIC_AD_CUSTOM_CONFIG_URL');
     if (configUrl) {
       return Object.freeze({
         title,
